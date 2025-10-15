@@ -116,6 +116,23 @@ img#photo {
 	background: #000;
 	z-index: 5;
 }
+.user-label {
+	color: #ccc;
+	font-size: 14px;
+}
+
+/* Health indicator dot */
+#healthDot {
+	position: fixed;
+	top: calc(var(--safe-top) + 6px);
+	left: calc(var(--safe-left) + 6px);
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #ff3b30; /* default red until checked */
+	box-shadow: 0 0 0 2px rgba(0,0,0,.4);
+	z-index: 6;
+}
 .user-box {
 	display: grid;
 	gap: 12px;
@@ -176,6 +193,7 @@ img#photo {
 		</div>
 		<button id="startButton" class="start-button" hidden>Start</button>
 	</div>
+	<div id="healthDot" aria-hidden="true"></div>
 	<div class="controls" title="Numbers training mode">
 		<label class="switch">
 			<input type="checkbox" id="modeToggle" />
@@ -185,7 +203,7 @@ img#photo {
 <script>
 (function() {
 	// Backend host for API calls
-	const HOST = 'http://localhost:8000';
+	const HOST = 'http://5.129.223.68:8000';
 
 	// Images 00..99 (assumes .png for all)
 	const imageNames = Array.from({ length: 100 }, function(_, i) {
@@ -204,6 +222,7 @@ img#photo {
 	const userInput = document.getElementById('userInput');
 	const userSave = document.getElementById('userSave');
 	const currentUserLabel = document.getElementById('currentUserLabel');
+	const healthDot = document.getElementById('healthDot');
 	let lastIndex = -1;
 	let isTransitioning = false;
 	let isNumberMode = true; // default Mode 2 (number first)
@@ -374,6 +393,23 @@ img#photo {
 		userInput.value = localStorage.getItem('current_user') || '';
 		updateUserLabel();
 		showGateIfNeeded();
+		// Check API health once on load
+		(function checkHealthOnce(){
+			try {
+				fetch(HOST + '/api/health', { method: 'GET', cache: 'no-store' })
+					.then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+					.then(function(data){
+						if (data && data.status === 'ok') {
+							healthDot.style.background = '#2ecc71';
+						} else {
+							healthDot.style.background = '#ff3b30';
+						}
+					})
+					.catch(function(){ healthDot.style.background = '#ff3b30'; });
+			} catch (e) {
+				healthDot.style.background = '#ff3b30';
+			}
+		})();
 	});
 
 	// Use pointer events so it works on both touch and mouse without double-firing
