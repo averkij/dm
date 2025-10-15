@@ -103,6 +103,63 @@ img#photo {
 	pointer-events: none; /* allow taps to pass through */
 	z-index: 2; /* ensure overlay text is above the image */
 }
+
+/* Start screen overlay */
+#startOverlay {
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	display: grid;
+	place-items: center;
+	background: #000;
+	z-index: 5;
+}
+.user-box {
+	display: grid;
+	gap: 12px;
+	place-items: center;
+}
+.user-input {
+	font-size: 18px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	border: 1px solid #444;
+	background: #111;
+	color: #fff;
+	min-width: 240px;
+}
+.user-save {
+	appearance: none;
+	border: none;
+	padding: 10px 16px;
+	border-radius: 8px;
+	font-size: 16px;
+	font-weight: 700;
+	cursor: pointer;
+	background: #2d7d46;
+	color: #fff;
+}
+.user-label {
+	color: #ccc;
+	font-size: 14px;
+}
+.start-button {
+	appearance: none;
+	border: none;
+	padding: 14px 28px;
+	border-radius: 10px;
+	font-size: 20px;
+	font-weight: 700;
+	cursor: pointer;
+	background: #0a84ff;
+	color: #fff;
+}
+.start-button:disabled {
+	background: #333;
+	cursor: default;
+}
 </style>
 </head>
 <body>
@@ -110,6 +167,15 @@ img#photo {
 		<img id="photo" alt="Random" src="" />
 	</div>
 	<div id="overlay" aria-hidden="true"></div>
+	<div id="startOverlay">
+		<div id="userGate" class="user-box" hidden>
+			<div>Enter user name</div>
+			<input id="userInput" class="user-input" type="text" placeholder="Your name" />
+			<span id="currentUserLabel" class="user-label"></span>
+			<button id="userSave" class="user-save">Continue</button>
+		</div>
+		<button id="startButton" class="start-button" hidden>Start</button>
+	</div>
 	<div class="controls" title="Numbers training mode">
 		<label class="switch">
 			<input type="checkbox" id="modeToggle" />
@@ -118,57 +184,36 @@ img#photo {
 	</div>
 <script>
 (function() {
-	const imageNames = [
-		"00.png",
-		"01.png",
-		"02.png",
-		"04.png",
-		"06.png",
-		"10.png",
-		"11.png",
-		"12.png",
-		"13.png",
-		"14.png",
-		"15.png",
-		"17.png",
-		"19.png",
-		"32.png",
-		"33.png",
-		"34.jpg",
-		"46.png",
-		"48.png",
-		"49.jpg",
-		"50.jpg",
-		"55.png",
-		"56.png",
-		"58.png",
-		"60.png",
-		"61.png",
-		"62.png",
-		"64.png",
-		"65.png",
-		"68.png",
-		"71.png",
-		"73.png",
-		"75.png",
-		"76.png",
-		"77.png",
-		"79.png",
-		"80.png",
-		"81.png",
-		"88.png"
-	];
+	// Backend host for API calls
+	const HOST = 'http://localhost:8000';
+
+	// Images 00..99 (assumes .png for all)
+	const imageNames = Array.from({ length: 100 }, function(_, i) {
+		const base = String(i).padStart(2, '0');
+		return base + '.png';
+	});
 
 	const basePath = 'img/';
 	const imgEl = document.getElementById('photo');
 	const overlayEl = document.getElementById('overlay');
 	const modeToggle = document.getElementById('modeToggle');
 	const controlsEl = document.querySelector('.controls');
+	const startOverlay = document.getElementById('startOverlay');
+	const startButton = document.getElementById('startButton');
+	const userGate = document.getElementById('userGate');
+	const userInput = document.getElementById('userInput');
+	const userSave = document.getElementById('userSave');
+	const currentUserLabel = document.getElementById('currentUserLabel');
 	let lastIndex = -1;
 	let isTransitioning = false;
-	let isNumberMode = false;
+	let isNumberMode = true; // default Mode 2 (number first)
 	let pendingIndex = null; // next number's image index in number mode
 	const preloadMap = new Map();
+
+	// Session timing & per-stimulus timing
+	let sessionActive = false;
+	let tapStartTs = 0; // resets whenever a new number/image is shown
+	let timerHandle = null;
 
 	function preloadImage(src) {
 		if (preloadMap.has(src)) return preloadMap.get(src);
@@ -214,9 +259,10 @@ img#photo {
 	function showRandomImage() {
 		const idx = pickNextIndex();
 		imgEl.src = basePath + imageNames[idx];
+		// start per-tap timer when stimulus (image) is visible
+		tapStartTs = Date.now();
 	}
 
-	window.addEventListener('DOMContentLoaded', showRandomImage, { once: true });
 
 	function showNumberForIndex(idx) {
 		const nameToShow = getBaseName(imageNames[idx]);
@@ -227,6 +273,8 @@ img#photo {
 		// Preload the corresponding image while the number is visible
 		const src = basePath + imageNames[idx];
 		preloadImage(src);
+		// start per-tap timer when stimulus (number) is visible
+		tapStartTs = Date.now();
 	}
 
 	function enterNumberMode() {
@@ -255,13 +303,98 @@ img#photo {
 		}
 	});
 
+	function stopSession(reasonText) {
+		sessionActive = false;
+		if (timerHandle) {
+			clearTimeout(timerHandle);
+			timerHandle = null;
+		}
+		startButton.textContent = reasonText || 'Time\'s up';
+		startButton.disabled = true;
+		startOverlay.style.display = 'grid';
+	}
+
+	function startSession() {
+		sessionActive = true;
+		if (timerHandle) clearTimeout(timerHandle);
+		timerHandle = setTimeout(function() {
+			stopSession("Time's up");
+		}, 60000);
+		// Default to mode 2 (number first)
+		modeToggle.checked = true;
+		enterNumberMode();
+	}
+
+	startButton.addEventListener('click', function() {
+		startOverlay.style.display = 'none';
+		startSession();
+	});
+
+	function sendTime(numberStr, elapsedMs, modeValue) {
+		try {
+			var currentUser = localStorage.getItem('current_user') || null;
+			fetch(HOST + '/api/write_time', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ number: Number(numberStr), time: elapsedMs, mode: modeValue, user: currentUser })
+			}).catch(function(){});
+		} catch (e) {}
+	}
+
+	function showGateIfNeeded() {
+		var existing = localStorage.getItem('current_user');
+		if (!existing) {
+			userGate.hidden = false;
+			startButton.hidden = true;
+			userInput.focus();
+		} else {
+			userGate.hidden = true;
+			startButton.hidden = false;
+		}
+	}
+
+	function updateUserLabel() {
+		var u = localStorage.getItem('current_user') || '';
+		currentUserLabel.textContent = u ? ('Current: ' + u) : 'Current: —';
+	}
+
+	userSave.addEventListener('click', function() {
+		var v = (userInput.value || '').trim();
+		if (!v) return;
+		localStorage.setItem('current_user', v);
+		updateUserLabel();
+		showGateIfNeeded();
+	});
+
+	userInput.addEventListener('keyup', function(e) {
+		if (e.key === 'Enter') userSave.click();
+	});
+
+	document.addEventListener('DOMContentLoaded', function() {
+		userInput.value = localStorage.getItem('current_user') || '';
+		updateUserLabel();
+		showGateIfNeeded();
+	});
+
 	// Use pointer events so it works on both touch and mouse without double-firing
 	window.addEventListener('pointerdown', function(ev) {
+		if (!sessionActive) return;
 		if (ev.isPrimary === false) return; // ignore secondary pointers
 		// Ignore taps on the controls (e.g., the slider)
 		if (controlsEl && controlsEl.contains(ev.target)) return;
 		if (isTransitioning) return;
 		isTransitioning = true;
+
+		// Compute elapsed from when the current stimulus appeared
+		var tapElapsed = Math.max(0, Date.now() - tapStartTs);
+		var modeValue = isNumberMode ? 2 : 1;
+		var numberForEvent = null;
+		if (isNumberMode) {
+			if (pendingIndex === null) pendingIndex = pickFreshIndex();
+			numberForEvent = getBaseName(imageNames[pendingIndex]);
+		} else {
+			if (lastIndex >= 0) numberForEvent = getBaseName(imageNames[lastIndex]);
+		}
 
 		if (isNumberMode) {
 			// In number mode: currently showing a number on white background.
@@ -279,6 +412,10 @@ img#photo {
 					isTransitioning = false;
 				}, 500);
 			});
+			// Send timing for this tap
+			if (numberForEvent !== null) {
+				sendTime(numberForEvent, tapElapsed, modeValue);
+			}
 			return;
 		}
 
@@ -286,19 +423,24 @@ img#photo {
 		if (lastIndex < 0) {
 			showRandomImage();
 			isTransitioning = false;
-			return;
+		} else {
+			const currentFile = imageNames[lastIndex];
+			const nameToShow = getBaseName(currentFile);
+			overlayEl.textContent = nameToShow;
+			overlayEl.style.color = '#fff';
+			overlayEl.style.background = 'rgba(0,0,0,0)';
+			overlayEl.style.display = 'grid';
+			// Send timing for this tap (name shown for current image)
+			if (numberForEvent !== null) {
+				sendTime(numberForEvent, tapElapsed, modeValue);
+			}
+			setTimeout(function() {
+				overlayEl.style.display = 'none';
+				showRandomImage();
+				isTransitioning = false;
+			}, 500);
 		}
-		const currentFile = imageNames[lastIndex];
-		const nameToShow = getBaseName(currentFile);
-		overlayEl.textContent = nameToShow;
-		overlayEl.style.color = '#fff';
-		overlayEl.style.background = 'rgba(0,0,0,0)';
-		overlayEl.style.display = 'grid';
-		setTimeout(function() {
-			overlayEl.style.display = 'none';
-			showRandomImage();
-			isTransitioning = false;
-		}, 500);
+
 	});
 })();
 </script>

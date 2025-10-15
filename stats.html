@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stats</title>
+<style>
+html, body {
+	height: 100%;
+}
+body {
+	margin: 0;
+	padding: 0;
+	background: #000;
+	color: #fff;
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+.topbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px;
+	position: sticky;
+	top: 0;
+	background: rgba(0,0,0,0.8);
+	backdrop-filter: blur(2px);
+	z-index: 3;
+}
+.switch {
+	display: inline-block;
+	position: relative;
+	width: 52px;
+	height: 30px;
+}
+.switch input { display: none; }
+.switch .slider {
+	position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+	background: #666; border-radius: 999px; transition: background-color .2s ease;
+}
+.switch .slider::before {
+	content: ''; position: absolute; height: 24px; width: 24px; left: 3px; top: 3px; background: #fff;
+	border-radius: 50%; transition: transform .2s ease;
+}
+.switch input:checked + .slider { background: #0a84ff; }
+.switch input:checked + .slider::before { transform: translateX(22px); }
+
+.content {
+	padding: 16px;
+	overflow: auto;
+}
+
+.controls { display: flex; align-items: center; gap: 12px; }
+.user-input { font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; }
+.btn { appearance: none; border: none; padding: 10px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.btn-primary { background: #0a84ff; color: #fff; }
+.user-label { color: #ccc; font-size: 14px; margin-left: 4px; }
+
+.chart {
+	margin-top: 16px;
+	width: 100%;
+	max-width: 1000px;
+	margin-left: auto; margin-right: auto;
+}
+.bars {
+	display: grid;
+	grid-template-columns: repeat(100, 1fr);
+	align-items: end;
+	gap: 2px;
+	height: 280px;
+	background: #0b0b0b;
+	border: 1px solid #222;
+	border-radius: 8px;
+	padding: 6px 6px 0 6px;
+}
+.bar { background: #2d7d46; }
+.bar.zero { background: #333; }
+.xlabels { display: grid; grid-template-columns: repeat(100, 1fr); font-size: 6px; color: #aaa; margin-top: 6px; }
+.stats { margin-top: 12px; color: #ddd; font-size: 14px; text-align: center; }
+
+/* Table styles */
+.table { margin-top: 16px; display: flex; justify-content: center; }
+.table table { border-collapse: collapse; width: 100%; max-width: 600px; background: #0b0b0b; border: 1px solid #222; border-radius: 8px; overflow: hidden; }
+.table th, .table td { padding: 8px 10px; border-bottom: 1px solid #1d1d1d; }
+.table th { text-align: left; background: #111; color: #ddd; font-weight: 700; }
+.table tr:nth-child(even) td { background: #0e0e0e; }
+.table .num { width: 80px; color: #ccc; }
+.table .avg { text-align: right; color: #fff; }
+</style>
+</head>
+<body>
+<div class="topbar">
+	<div class="controls">
+		<label class="switch" title="Numbers training mode">
+			<input type="checkbox" id="modeToggle" />
+			<span class="slider"></span>
+		</label>
+		<input id="userInput" class="user-input" type="text" placeholder="Set current user" />
+		<span id="currentUserLabel" class="user-label"></span>
+		<button id="saveUser" class="btn btn-primary">Save</button>
+		<button id="refresh" class="btn">Refresh</button>
+	</div>
+</div>
+<div class="content">
+	<div class="chart">
+		<div id="bars" class="bars"></div>
+		<div id="xlabels" class="xlabels"></div>
+		<div id="summary" class="stats"></div>
+		<div id="tableWrap" class="table"></div>
+	</div>
+</div>
+<script>
+(function(){
+	const HOST = 'http://localhost:8000';
+	const modeToggle = document.getElementById('modeToggle');
+	const userInput = document.getElementById('userInput');
+	const saveUser = document.getElementById('saveUser');
+	const refresh = document.getElementById('refresh');
+	const currentUserLabel = document.getElementById('currentUserLabel');
+	const barsEl = document.getElementById('bars');
+	const xlabelsEl = document.getElementById('xlabels');
+	const summaryEl = document.getElementById('summary');
+
+	// default to mode 2 on load for stats
+	modeToggle.checked = true; // checked => mode 2
+
+	// initialize x-axis labels 00..99
+	const labels = Array.from({length:100}, function(_,i){ return String(i).padStart(2, '0'); });
+	labels.forEach(function(lbl){
+		const d = document.createElement('div');
+		d.textContent = lbl;
+		xlabelsEl.appendChild(d);
+	});
+
+	function getModeValue(){
+		return modeToggle.checked ? 2 : 1; // reusing toggle style; checked => mode 2
+	}
+
+	function readCurrentUser(){
+		return localStorage.getItem('current_user') || '';
+	}
+
+	function writeCurrentUser(v){
+		if ((v||'').trim()) localStorage.setItem('current_user', v.trim());
+	}
+
+	function updateUserLabel(){
+		const u = readCurrentUser();
+		currentUserLabel.textContent = u ? ('Current: ' + u) : 'Current: —';
+	}
+
+	function fetchTimes(){
+		const user = readCurrentUser();
+		const mode = getModeValue();
+		const params = new URLSearchParams();
+		params.set('mode', String(mode));
+		if (user) params.set('user', user);
+		return fetch(HOST + '/api/get_time?' + params.toString()).then(function(r){ return r.json(); });
+	}
+
+	function computeAverages(rows){
+		const sum = new Array(100).fill(0);
+		const count = new Array(100).fill(0);
+		rows.forEach(function(row){
+			const num = Number(row.number);
+			const t = Number(row.time);
+			if (Number.isInteger(num) && num >= 0 && num <= 99 && Number.isFinite(t)){
+				sum[num] += t;
+				count[num] += 1;
+			}
+		});
+		const avg = sum.map(function(s, i){ return count[i] ? (s / count[i]) : 0; });
+		return { avg: avg, count: count };
+	}
+
+	function renderBars(avg){
+		barsEl.innerHTML = '';
+		const max = Math.max(1, Math.max.apply(null, avg));
+		avg.forEach(function(value){
+			const bar = document.createElement('div');
+			bar.className = 'bar' + (value === 0 ? ' zero' : '');
+			const h = (value / max) * 100;
+			bar.style.height = h + '%';
+			barsEl.appendChild(bar);
+		});
+	}
+
+	function renderSummary(avg, count){
+		const nonZero = avg.filter(function(v){ return v > 0; });
+		const overall = nonZero.length ? Math.round(nonZero.reduce(function(a,b){ return a + b; }, 0) / nonZero.length) : 0;
+		summaryEl.textContent = 'Average (non-zero): ' + overall + ' ms — Total samples: ' + count.reduce(function(a,b){return a+b;},0);
+	}
+
+	function renderTable(avg){
+		var html = ['<table><thead><tr><th>Number</th><th style="text-align:right">Average (sec)</th></tr></thead><tbody>'];
+		for (var i = 0; i < 100; i++) {
+			var num = String(i).padStart(2, '0');
+			var valSec = (((avg[i] || 0) / 1000).toFixed(2)) + ' sec';
+			html.push('<tr><td class="num">' + num + '</td><td class="avg">' + valSec + '</td></tr>');
+		}
+		html.push('</tbody></table>');
+		document.getElementById('tableWrap').innerHTML = html.join('');
+	}
+
+	function refreshAll(){
+		fetchTimes().then(function(data){
+			var rows = Array.isArray(data.rows) ? data.rows : [];
+			var result = computeAverages(rows);
+			renderBars(result.avg);
+			renderSummary(result.avg, result.count);
+			renderTable(result.avg);
+		});
+	}
+
+	modeToggle.addEventListener('change', refreshAll);
+	saveUser.addEventListener('click', function(){ writeCurrentUser(userInput.value); updateUserLabel(); refreshAll(); });
+	refresh.addEventListener('click', refreshAll);
+
+	document.addEventListener('DOMContentLoaded', function(){
+		userInput.value = readCurrentUser();
+		updateUserLabel();
+		refreshAll();
+	});
+})();
+</script>
+</body>
+</html>
+
+
