@@ -25,6 +25,50 @@ body {
 	touch-action: manipulation; /* prevent double-tap zoom */
 	-webkit-tap-highlight-color: transparent;
 }
+.controls {
+	position: fixed;
+	top: calc(var(--safe-top) + 8px);
+	right: calc(var(--safe-right) + 8px);
+	z-index: 4;
+	font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+.switch {
+	display: inline-block;
+	position: relative;
+	width: 52px;
+	height: 30px;
+}
+.switch input {
+	display: none;
+}
+.switch .slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: #666;
+	border-radius: 999px;
+	transition: background-color .2s ease;
+}
+.switch .slider::before {
+	content: '';
+	position: absolute;
+	height: 24px;
+	width: 24px;
+	left: 3px;
+	top: 3px;
+	background: #fff;
+	border-radius: 50%;
+	transition: transform .2s ease;
+}
+.switch input:checked + .slider {
+	background: #0a84ff;
+}
+.switch input:checked + .slider::before {
+	transform: translateX(22px);
+}
 .main {
 	width: calc(100vw - var(--safe-left) - var(--safe-right));
 	height: calc(100vh - var(--safe-top) - var(--safe-bottom));
@@ -66,11 +110,19 @@ img#photo {
 		<img id="photo" alt="Random" src="" />
 	</div>
 	<div id="overlay" aria-hidden="true"></div>
+	<div class="controls" title="Numbers training mode">
+		<label class="switch">
+			<input type="checkbox" id="modeToggle" />
+			<span class="slider"></span>
+		</label>
+	</div>
 <script>
 (function() {
 	const imageNames = [
 		"00.png",
-		"04.jpg",
+		"01.png",
+		"02.png",
+		"04.png",
 		"06.png",
 		"10.png",
 		"11.png",
@@ -89,12 +141,18 @@ img#photo {
 		"50.jpg",
 		"55.png",
 		"56.png",
+		"58.png",
 		"60.png",
 		"61.png",
 		"62.png",
 		"64.png",
+		"65.png",
 		"68.png",
+		"71.png",
 		"73.png",
+		"75.png",
+		"76.png",
+		"77.png",
 		"79.png",
 		"80.png",
 		"81.png",
@@ -104,8 +162,12 @@ img#photo {
 	const basePath = 'img/';
 	const imgEl = document.getElementById('photo');
 	const overlayEl = document.getElementById('overlay');
+	const modeToggle = document.getElementById('modeToggle');
+	const controlsEl = document.querySelector('.controls');
 	let lastIndex = -1;
 	let isTransitioning = false;
+	let isNumberMode = false;
+	let pendingIndex = null; // next number's image index in number mode
 
 	function getBaseName(fileName) {
 		return fileName.replace(/\.[^.]+$/, '');
@@ -121,6 +183,15 @@ img#photo {
 		return idx;
 	}
 
+	function pickFreshIndex() {
+		if (imageNames.length === 1) return 0;
+		let idx;
+		do {
+			idx = Math.floor(Math.random() * imageNames.length);
+		} while (idx === lastIndex);
+		return idx; // does NOT mutate lastIndex
+	}
+
 	function showRandomImage() {
 		const idx = pickNextIndex();
 		imgEl.src = basePath + imageNames[idx];
@@ -128,25 +199,75 @@ img#photo {
 
 	window.addEventListener('DOMContentLoaded', showRandomImage, { once: true });
 
+	function showNumberForIndex(idx) {
+		const nameToShow = getBaseName(imageNames[idx]);
+		overlayEl.textContent = nameToShow;
+		overlayEl.style.color = '#000';
+		overlayEl.style.background = '#fff';
+		overlayEl.style.display = 'grid';
+	}
+
+	function enterNumberMode() {
+		if (isTransitioning) return;
+		isNumberMode = true;
+		if (pendingIndex === null) pendingIndex = pickFreshIndex();
+		showNumberForIndex(pendingIndex);
+	}
+
+	function exitNumberMode() {
+		isNumberMode = false;
+		overlayEl.style.display = 'none';
+		overlayEl.style.background = 'rgba(0,0,0,0)';
+		overlayEl.style.color = '#fff';
+		pendingIndex = null;
+		if (lastIndex < 0) {
+			showRandomImage();
+		}
+	}
+
+	modeToggle.addEventListener('change', function() {
+		if (modeToggle.checked) {
+			enterNumberMode();
+		} else {
+			exitNumberMode();
+		}
+	});
+
 	// Use pointer events so it works on both touch and mouse without double-firing
 	window.addEventListener('pointerdown', function(ev) {
 		if (ev.isPrimary === false) return; // ignore secondary pointers
+		// Ignore taps on the controls (e.g., the slider)
+		if (controlsEl && controlsEl.contains(ev.target)) return;
 		if (isTransitioning) return;
 		isTransitioning = true;
 
-		// Show current image name first; then switch
+		if (isNumberMode) {
+			// In number mode: currently showing a number on white background.
+			if (pendingIndex === null) pendingIndex = pickFreshIndex();
+			// Show its image for 0.5s, then next number
+			overlayEl.style.display = 'none';
+			imgEl.src = basePath + imageNames[pendingIndex];
+			lastIndex = pendingIndex;
+			setTimeout(function() {
+				pendingIndex = pickFreshIndex();
+				showNumberForIndex(pendingIndex);
+				isTransitioning = false;
+			}, 500);
+			return;
+		}
+
+		// Normal mode: show current image name for 0.5s, then next image
 		if (lastIndex < 0) {
 			showRandomImage();
 			isTransitioning = false;
 			return;
 		}
-
 		const currentFile = imageNames[lastIndex];
 		const nameToShow = getBaseName(currentFile);
-
 		overlayEl.textContent = nameToShow;
+		overlayEl.style.color = '#fff';
+		overlayEl.style.background = 'rgba(0,0,0,0)';
 		overlayEl.style.display = 'grid';
-
 		setTimeout(function() {
 			overlayEl.style.display = 'none';
 			showRandomImage();
