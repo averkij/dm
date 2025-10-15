@@ -127,9 +127,11 @@ body {
 
 	// initialize x-axis labels 00..99
 	const labels = Array.from({length:100}, function(_,i){ return String(i).padStart(2, '0'); });
-	labels.forEach(function(lbl){
+	labels.forEach(function(lbl, i){
 		const d = document.createElement('div');
 		d.textContent = lbl;
+		// Yellow for even labels, white for odd
+		d.style.color = (i % 2 === 0) ? '#ff0' : '#fff';
 		xlabelsEl.appendChild(d);
 	});
 
