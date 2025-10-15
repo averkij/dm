@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: dm_app
+    restart: unless-stopped
+    environment:
+      - PORT=8000
+    volumes:
+      - ./dm.db:/app/dm.db
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: dm_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - EMAIL=${EMAIL}
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

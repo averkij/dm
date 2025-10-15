@@ -1,0 +1,18 @@
+.git
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.db-journal
+.env
+.env.*
+.vscode/
+.idea/
+.gitignore
+img/
+
+# Docker build artifacts
+Dockerfile*
+Caddyfile
