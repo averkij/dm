@@ -217,10 +217,9 @@ img#photo {
 	// Backend host for API calls
 	const HOST = 'https://superminor.ru';
 
-	// Images 00..99 (assumes .png for all)
 	const imageNames = Array.from({ length: 100 }, function(_, i) {
 		const base = String(i).padStart(2, '0');
-		return base + '.png';
+		return base + '.jpg';
 	});
 
 	const basePath = 'img/';
