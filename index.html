@@ -38,19 +38,44 @@ img#photo {
 	user-select: none;
 	-webkit-user-drag: none;
 }
+
+#overlay {
+	position: fixed;
+	left: var(--safe-left);
+	right: var(--safe-right);
+	top: var(--safe-top);
+	bottom: var(--safe-bottom);
+	display: none; /* toggled to grid when visible */
+	place-items: center;
+	background: transparent;
+	color: #fff;
+	font-size: clamp(32px, 10vw, 96px);
+	font-weight: 700;
+	text-align: center;
+	line-height: 1.2;
+	letter-spacing: 0.5px;
+	user-select: none;
+	pointer-events: none; /* allow taps to pass through */
+}
 </style>
 </head>
 <body>
 	<div class="main">
 		<img id="photo" alt="Random" src="" />
 	</div>
+	<div id="overlay" aria-hidden="true"></div>
 <script>
 (function() {
 	const imageNames = [
 		"00.png",
 		"04.jpg",
+		"06.png",
 		"10.png",
 		"11.png",
+		"12.png",
+		"13.png",
+		"14.png",
+		"15.png",
 		"17.png",
 		"19.png",
 		"32.png",
@@ -61,15 +86,28 @@ img#photo {
 		"49.jpg",
 		"50.jpg",
 		"55.png",
+		"56.png",
+		"60.png",
 		"61.png",
 		"62.png",
 		"64.png",
+		"68.png",
+		"73.png",
+		"79.png",
+		"80.png",
+		"81.png",
 		"88.png"
 	];
 
 	const basePath = 'img/';
 	const imgEl = document.getElementById('photo');
+	const overlayEl = document.getElementById('overlay');
 	let lastIndex = -1;
+	let isTransitioning = false;
+
+	function getBaseName(fileName) {
+		return fileName.replace(/\.[^.]+$/, '');
+	}
 
 	function pickNextIndex() {
 		if (imageNames.length === 1) return 0;
@@ -91,7 +129,24 @@ img#photo {
 	// Use pointer events so it works on both touch and mouse without double-firing
 	window.addEventListener('pointerdown', function(ev) {
 		if (ev.isPrimary === false) return; // ignore secondary pointers
-		showRandomImage();
+		if (isTransitioning) return;
+		isTransitioning = true;
+
+		const nextIdx = pickNextIndex();
+		const nextFile = imageNames[nextIdx];
+		const nameToShow = getBaseName(nextFile);
+
+		// show overlay for 0.5s before switching image
+		overlayEl.textContent = nameToShow;
+		overlayEl.style.display = 'grid';
+		imgEl.style.visibility = 'hidden';
+
+		setTimeout(function() {
+			imgEl.src = basePath + nextFile;
+			imgEl.style.visibility = '';
+			overlayEl.style.display = 'none';
+			isTransitioning = false;
+		}, 500);
 	});
 })();
 </script>
