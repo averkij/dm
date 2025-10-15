@@ -32,6 +32,17 @@ body {
 	z-index: 4;
 	font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
+/* Session timer centered at the top */
+#sessionTimer {
+	position: fixed;
+	top: calc(var(--safe-top) + 8px);
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 6;
+	font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+	font-weight: 700;
+	color: #aaa;
+}
 .switch {
 	display: inline-block;
 	position: relative;
@@ -200,6 +211,7 @@ img#photo {
 			<span class="slider"></span>
 		</label>
 	</div>
+	<div id="sessionTimer" aria-hidden="true" style="display:none">02:00</div>
 <script>
 (function() {
 	// Backend host for API calls
@@ -223,6 +235,7 @@ img#photo {
 	const userSave = document.getElementById('userSave');
 	const currentUserLabel = document.getElementById('currentUserLabel');
 	const healthDot = document.getElementById('healthDot');
+	const sessionTimerEl = document.getElementById('sessionTimer');
 	let lastIndex = -1;
 	let isTransitioning = false;
 	let isNumberMode = true; // default Mode 2 (number first)
@@ -233,6 +246,42 @@ img#photo {
 	let sessionActive = false;
 	let tapStartTs = 0; // resets whenever a new number/image is shown
 	let timerHandle = null;
+	let sessionTicker = null; // interval to update visible countdown
+	let sessionDeadlineTs = 0; // timestamp when session should end
+
+	function formatRemaining(ms) {
+		var totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+		var minutes = Math.floor(totalSeconds / 60);
+		var seconds = totalSeconds % 60;
+		return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+	}
+
+	function updateSessionTimerUI() {
+		if (!sessionActive) return;
+		var remaining = sessionDeadlineTs - Date.now();
+		if (remaining <= 0) {
+			stopSession("Time's up");
+			return;
+		}
+		sessionTimerEl.textContent = formatRemaining(remaining);
+	}
+
+	function restartSessionTimer() {
+		if (!sessionActive) return;
+		if (timerHandle) {
+			clearTimeout(timerHandle);
+			timerHandle = null;
+		}
+		if (sessionTicker) {
+			clearInterval(sessionTicker);
+			sessionTicker = null;
+		}
+		sessionDeadlineTs = Date.now() + 120000;
+		sessionTimerEl.style.display = 'block';
+		updateSessionTimerUI();
+		timerHandle = setTimeout(function() { stopSession("Time's up"); }, 120000);
+		sessionTicker = setInterval(updateSessionTimerUI, 200);
+	}
 
 	function preloadImage(src) {
 		if (preloadMap.has(src)) return preloadMap.get(src);
@@ -280,6 +329,7 @@ img#photo {
 		imgEl.src = basePath + imageNames[idx];
 		// start per-tap timer when stimulus (image) is visible
 		tapStartTs = Date.now();
+		restartSessionTimer();
 	}
 
 
@@ -294,6 +344,7 @@ img#photo {
 		preloadImage(src);
 		// start per-tap timer when stimulus (number) is visible
 		tapStartTs = Date.now();
+		restartSessionTimer();
 	}
 
 	function enterNumberMode() {
@@ -328,6 +379,11 @@ img#photo {
 			clearTimeout(timerHandle);
 			timerHandle = null;
 		}
+		if (sessionTicker) {
+			clearInterval(sessionTicker);
+			sessionTicker = null;
+		}
+		sessionTimerEl.style.display = 'none';
 		startButton.textContent = reasonText || 'Time\'s up';
 		startButton.disabled = true;
 		startOverlay.style.display = 'grid';
@@ -335,10 +391,8 @@ img#photo {
 
 	function startSession() {
 		sessionActive = true;
-		if (timerHandle) clearTimeout(timerHandle);
-		timerHandle = setTimeout(function() {
-			stopSession("Time's up");
-		}, 120000);
+		if (timerHandle) { clearTimeout(timerHandle); timerHandle = null; }
+		if (sessionTicker) { clearInterval(sessionTicker); sessionTicker = null; }
 		// Default to mode 2 (number first)
 		modeToggle.checked = true;
 		enterNumberMode();
@@ -442,6 +496,7 @@ img#photo {
 				imgEl.src = src;
 				overlayEl.style.display = 'none';
 				lastIndex = pendingIndex;
+				restartSessionTimer();
 				setTimeout(function() {
 					pendingIndex = pickFreshIndex();
 					showNumberForIndex(pendingIndex);
