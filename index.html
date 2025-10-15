@@ -30,6 +30,7 @@ body {
 	height: calc(100vh - var(--safe-top) - var(--safe-bottom));
 	display: grid;
 	place-items: center;
+	position: relative; /* to anchor overlay over the image area */
 }
 img#photo {
 	width: 100%;
@@ -40,14 +41,14 @@ img#photo {
 }
 
 #overlay {
-	position: fixed;
-	left: var(--safe-left);
-	right: var(--safe-right);
-	top: var(--safe-top);
-	bottom: var(--safe-bottom);
+	position: absolute; /* overlay directly over the image container */
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
 	display: none; /* toggled to grid when visible */
 	place-items: center;
-	background: transparent;
+	background: rgba(0,0,0,0); /* ensure fully transparent */
 	color: #fff;
 	font-size: clamp(32px, 10vw, 96px);
 	font-weight: 700;
@@ -56,6 +57,7 @@ img#photo {
 	letter-spacing: 0.5px;
 	user-select: none;
 	pointer-events: none; /* allow taps to pass through */
+	z-index: 2; /* ensure overlay text is above the image */
 }
 </style>
 </head>
@@ -132,19 +134,22 @@ img#photo {
 		if (isTransitioning) return;
 		isTransitioning = true;
 
-		const nextIdx = pickNextIndex();
-		const nextFile = imageNames[nextIdx];
-		const nameToShow = getBaseName(nextFile);
+		// Show current image name first; then switch
+		if (lastIndex < 0) {
+			showRandomImage();
+			isTransitioning = false;
+			return;
+		}
 
-		// show overlay for 0.5s before switching image
+		const currentFile = imageNames[lastIndex];
+		const nameToShow = getBaseName(currentFile);
+
 		overlayEl.textContent = nameToShow;
 		overlayEl.style.display = 'grid';
-		imgEl.style.visibility = 'hidden';
 
 		setTimeout(function() {
-			imgEl.src = basePath + nextFile;
-			imgEl.style.visibility = '';
 			overlayEl.style.display = 'none';
+			showRandomImage();
 			isTransitioning = false;
 		}, 500);
 	});
