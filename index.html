@@ -168,6 +168,25 @@ img#photo {
 	let isTransitioning = false;
 	let isNumberMode = false;
 	let pendingIndex = null; // next number's image index in number mode
+	const preloadMap = new Map();
+
+	function preloadImage(src) {
+		if (preloadMap.has(src)) return preloadMap.get(src);
+		let resolveFn;
+		const p = new Promise(function(resolve) { resolveFn = resolve; });
+		const temp = new Image();
+		function done() { resolveFn(); }
+		if (typeof temp.decode === 'function') {
+			temp.src = src;
+			temp.decode().then(done).catch(done);
+		} else {
+			temp.onload = done;
+			temp.onerror = done;
+			temp.src = src;
+		}
+		preloadMap.set(src, p);
+		return p;
+	}
 
 	function getBaseName(fileName) {
 		return fileName.replace(/\.[^.]+$/, '');
@@ -205,6 +224,9 @@ img#photo {
 		overlayEl.style.color = '#000';
 		overlayEl.style.background = '#fff';
 		overlayEl.style.display = 'grid';
+		// Preload the corresponding image while the number is visible
+		const src = basePath + imageNames[idx];
+		preloadImage(src);
 	}
 
 	function enterNumberMode() {
@@ -244,15 +266,19 @@ img#photo {
 		if (isNumberMode) {
 			// In number mode: currently showing a number on white background.
 			if (pendingIndex === null) pendingIndex = pickFreshIndex();
-			// Show its image for 0.5s, then next number
-			overlayEl.style.display = 'none';
-			imgEl.src = basePath + imageNames[pendingIndex];
-			lastIndex = pendingIndex;
-			setTimeout(function() {
-				pendingIndex = pickFreshIndex();
-				showNumberForIndex(pendingIndex);
-				isTransitioning = false;
-			}, 500);
+			// Show its image for 0.5s, then next number.
+			// Avoid flicker: keep white overlay until the image is decoded, then swap and hide overlay.
+			const src = basePath + imageNames[pendingIndex];
+			preloadImage(src).then(function() {
+				imgEl.src = src;
+				overlayEl.style.display = 'none';
+				lastIndex = pendingIndex;
+				setTimeout(function() {
+					pendingIndex = pickFreshIndex();
+					showNumberForIndex(pendingIndex);
+					isTransitioning = false;
+				}, 500);
+			});
 			return;
 		}
 
