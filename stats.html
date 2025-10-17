@@ -3,110 +3,497 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Stats</title>
+<title>Performance Statistics</title>
 <style>
+:root {
+	--bg-primary: #0d1117;
+	--bg-secondary: #161b22;
+	--bg-tertiary: #21262d;
+	--text-primary: #f0f6fc;
+	--text-secondary: #8b949e;
+	--text-muted: #6e7681;
+	--accent-primary: #1f6feb;
+	--accent-secondary: #238636;
+	--border-color: #30363d;
+	--shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	--shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.2);
+	--radius: 16px;
+	--radius-sm: 10px;
+	--font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+	--transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+	box-sizing: border-box;
+}
+
 html, body {
 	height: 100%;
-}
-body {
 	margin: 0;
 	padding: 0;
-	background: #000;
-	color: #fff;
-	display: grid;
-	grid-template-rows: auto 1fr auto;
-	font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
+
+body {
+	background: linear-gradient(135deg, var(--bg-primary) 0%, #0d1117 50%, #161b22 100%);
+	color: var(--text-primary);
+	font-family: var(--font-family);
+	font-size: 16px;
+	line-height: 1.6;
+	display: grid;
+	grid-template-rows: auto 1fr;
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
 .topbar {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 12px;
+	justify-content: space-between;
+	padding: 20px 24px;
+	background: rgba(13, 17, 23, 0.95);
+	backdrop-filter: blur(24px);
+	border-bottom: 1px solid var(--border-color);
 	position: sticky;
 	top: 0;
-	background: rgba(0,0,0,0.8);
-	backdrop-filter: blur(2px);
-	z-index: 3;
+	z-index: 100;
+	box-shadow: var(--shadow-sm);
 }
+
+.topbar h1 {
+	margin: 0;
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--text-primary);
+	background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.controls {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.control-group {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
 .switch {
 	display: inline-block;
 	position: relative;
-	width: 52px;
-	height: 30px;
+	width: 56px;
+	height: 32px;
 }
-.switch input { display: none; }
+
+.switch input { 
+	display: none; 
+}
+
 .switch .slider {
-	position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-	background: #666; border-radius: 999px; transition: background-color .2s ease;
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: var(--bg-tertiary);
+	border-radius: 32px;
+	transition: var(--transition);
+	border: 2px solid var(--border-color);
 }
+
 .switch .slider::before {
-	content: ''; position: absolute; height: 24px; width: 24px; left: 3px; top: 3px; background: #fff;
-	border-radius: 50%; transition: transform .2s ease;
+	content: '';
+	position: absolute;
+	height: 24px;
+	width: 24px;
+	left: 2px;
+	top: 2px;
+	background: var(--text-primary);
+	border-radius: 50%;
+	transition: var(--transition);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
-.switch input:checked + .slider { background: #0a84ff; }
-.switch input:checked + .slider::before { transform: translateX(22px); }
+
+.switch input:checked + .slider {
+	background: var(--accent-primary);
+	border-color: var(--accent-primary);
+}
+
+.switch input:checked + .slider::before {
+	transform: translateX(24px);
+}
+
+.user-input {
+	font-size: 16px;
+	padding: 14px 18px;
+	border-radius: var(--radius-sm);
+	border: 2px solid var(--border-color);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	min-width: 200px;
+	transition: var(--transition);
+	font-weight: 500;
+}
+
+.user-input:focus {
+	outline: none;
+	border-color: var(--accent-primary);
+	box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.15);
+	background: var(--bg-primary);
+}
+
+.btn {
+	appearance: none;
+	border: none;
+	padding: 14px 24px;
+	border-radius: var(--radius-sm);
+	font-weight: 600;
+	cursor: pointer;
+	font-size: 16px;
+	transition: var(--transition);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	font-family: var(--font-family);
+}
+
+.btn-primary {
+	background: linear-gradient(135deg, var(--accent-primary), #1a5490);
+	color: var(--text-primary);
+	box-shadow: 0 4px 16px rgba(31, 111, 235, 0.3);
+}
+
+.btn-primary:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 24px rgba(31, 111, 235, 0.4);
+	background: linear-gradient(135deg, #2d7fea, #1a5490);
+}
+
+.btn-secondary {
+	background: var(--bg-tertiary);
+	color: var(--text-secondary);
+	border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	border-color: var(--accent-primary);
+	transform: translateY(-1px);
+}
+
+.user-label {
+	color: var(--text-secondary);
+	font-size: 14px;
+	font-weight: 500;
+}
 
 .content {
-	padding: 16px;
+	padding: 32px;
 	overflow: auto;
+	max-width: 1400px;
+	margin: 0 auto;
+	width: 100%;
 }
-
-.controls { display: flex; align-items: center; gap: 12px; }
-.user-input { font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; }
-.btn { appearance: none; border: none; padding: 10px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-.btn-primary { background: #0a84ff; color: #fff; }
-.user-label { color: #ccc; font-size: 14px; margin-left: 4px; }
 
 .chart {
-	margin-top: 16px;
-	width: 100%;
-	max-width: 1000px;
-	margin-left: auto; margin-right: auto;
+	margin-bottom: 40px;
+	background: var(--bg-secondary);
+	border-radius: var(--radius);
+	padding: 32px;
+	box-shadow: var(--shadow);
+	border: 1px solid var(--border-color);
 }
+
+.chart-title {
+	font-size: 22px;
+	font-weight: 700;
+	margin-bottom: 24px;
+	color: var(--text-primary);
+	text-align: center;
+	letter-spacing: -0.5px;
+}
+
 .bars {
 	display: grid;
 	grid-template-columns: repeat(100, 1fr);
 	align-items: end;
-	gap: 2px;
-	height: 280px;
-	background: #0b0b0b;
-	border: 1px solid #222;
-	border-radius: 8px;
-	padding: 6px 6px 0 6px;
+	gap: 1px;
+	height: 320px;
+	background: var(--bg-primary);
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-sm);
+	padding: 12px;
+	margin-bottom: 20px;
 }
-.bar { background: #2d7d46; }
-.bar.zero { background: #333; }
-.xlabels { display: grid; grid-template-columns: repeat(100, 1fr); font-size: 6px; color: #aaa; margin-top: 5px; }
-.stats { margin-top: 12px; color: #ddd; font-size: 14px; text-align: center; }
 
-/* Table styles */
-.table { margin-top: 16px; display: flex; justify-content: center; }
-.table table { border-collapse: collapse; width: 100%; max-width: 600px; background: #0b0b0b; border: 1px solid #222; border-radius: 8px; overflow: hidden; }
-.table th, .table td { padding: 8px 10px; border-bottom: 1px solid #1d1d1d; }
-.table th { text-align: left; background: #111; color: #ddd; font-weight: 700; }
-.table tr:nth-child(even) td { background: #0e0e0e; }
-.table .num { width: 80px; color: #ccc; }
-.table .avg { text-align: right; color: #fff; }
+.bar {
+	background: linear-gradient(to top, var(--accent-secondary), #2d7d46);
+	border-radius: 1px;
+	transition: var(--transition);
+}
+
+.bar:hover {
+	background: linear-gradient(to top, #4cd964, #34c759);
+	transform: scaleY(1.05);
+	box-shadow: 0 0 8px rgba(35, 134, 54, 0.3);
+}
+
+.bar.zero {
+	background: var(--bg-tertiary);
+}
+
+.xlabels {
+	display: grid;
+	grid-template-columns: repeat(100, 1fr);
+	font-size: 6px;
+	color: var(--text-muted);
+	margin-top: 8px;
+	text-align: center;
+	overflow: hidden;
+}
+
+.stats {
+	margin-top: 20px;
+	color: var(--text-secondary);
+	font-size: 16px;
+	text-align: center;
+	font-weight: 500;
+	padding: 16px;
+	background: var(--bg-primary);
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--border-color);
+}
+
+.table-container {
+	background: var(--bg-secondary);
+	border-radius: var(--radius);
+	padding: 32px;
+	box-shadow: var(--shadow);
+	border: 1px solid var(--border-color);
+	overflow-x: auto;
+}
+
+.table-container h2 {
+	font-size: 22px;
+	font-weight: 700;
+	margin-bottom: 24px;
+	color: var(--text-primary);
+	text-align: center;
+	letter-spacing: -0.5px;
+}
+
+.table {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--bg-primary);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	border: 1px solid var(--border-color);
+}
+
+.table th {
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
+	font-weight: 700;
+	padding: 18px 16px;
+	text-align: left;
+	font-size: 14px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	border-bottom: 2px solid var(--border-color);
+}
+
+.table td {
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--border-color);
+	color: var(--text-secondary);
+	font-size: 14px;
+}
+
+.table tr:nth-child(even) td {
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.table tr:hover td {
+	background: rgba(0, 122, 255, 0.1);
+	color: var(--text-primary);
+}
+
+.table .num {
+	width: 80px;
+	color: var(--text-primary);
+	font-weight: 600;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.table .samples {
+	width: 100px;
+	text-align: center;
+	color: var(--accent-secondary);
+	font-weight: 600;
+}
+
+.table .avg {
+	text-align: right;
+	color: var(--text-primary);
+	font-weight: 500;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+	.topbar {
+		flex-direction: column;
+		gap: 16px;
+		padding: 16px;
+	}
+	
+	.topbar h1 {
+		font-size: 20px;
+	}
+	
+	.controls {
+		justify-content: center;
+		gap: 12px;
+	}
+	
+	.user-input {
+		min-width: 150px;
+		font-size: 16px;
+	}
+	
+	.content {
+		padding: 16px;
+	}
+	
+	.chart {
+		padding: 16px;
+	}
+	
+	.bars {
+		height: 200px;
+		gap: 0.5px;
+	}
+	
+	.xlabels {
+		font-size: 4px;
+		overflow: hidden;
+		white-space: nowrap;
+	}
+	
+	.table-container {
+		padding: 16px;
+	}
+	
+	.table th,
+	.table td {
+		padding: 8px 6px;
+		font-size: 12px;
+	}
+	
+	.table .num {
+		width: 60px;
+	}
+	
+	.table .samples {
+		width: 80px;
+	}
+}
+
+@media (max-width: 480px) {
+	.topbar h1 {
+		font-size: 18px;
+	}
+	
+	.controls {
+		flex-direction: column;
+		width: 100%;
+	}
+	
+	.control-group {
+		width: 100%;
+		justify-content: center;
+	}
+	
+	.user-input {
+		width: 100%;
+		min-width: auto;
+	}
+	
+	.chart {
+		padding: 12px;
+	}
+	
+	.bars {
+		height: 150px;
+		gap: 0px;
+	}
+	
+	.xlabels {
+		font-size: 3px;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	
+	.table-container {
+		padding: 12px;
+	}
+	
+	.table th,
+	.table td {
+		padding: 6px 4px;
+		font-size: 11px;
+	}
+	
+	.table .num {
+		width: 50px;
+	}
+	
+	.table .samples {
+		width: 60px;
+	}
+}
 </style>
 </head>
 <body>
 <div class="topbar">
+	<h1>Performance Statistics</h1>
 	<div class="controls">
-		<label class="switch" title="Numbers training mode">
-			<input type="checkbox" id="modeToggle" />
-			<span class="slider"></span>
-		</label>
-		<input id="userInput" class="user-input" type="text" placeholder="Set current user" />
-		<span id="currentUserLabel" class="user-label"></span>
-		<button id="saveUser" class="btn btn-primary">Save</button>
-		<button id="refresh" class="btn">Refresh</button>
+		<div class="control-group">
+			<label class="switch" title="Numbers training mode">
+				<input type="checkbox" id="modeToggle" />
+				<span class="slider"></span>
+			</label>
+			<span class="user-label">Mode 2</span>
+		</div>
+		<div class="control-group">
+			<input id="userInput" class="user-input" type="text" placeholder="Set current user" />
+			<span id="currentUserLabel" class="user-label"></span>
+		</div>
+		<div class="control-group">
+			<button id="saveUser" class="btn btn-primary">Save</button>
+			<button id="refresh" class="btn btn-secondary">Refresh</button>
+		</div>
 	</div>
 </div>
 <div class="content">
 	<div class="chart">
+		<div class="chart-title">Performance Distribution</div>
 		<div id="bars" class="bars"></div>
 		<div id="xlabels" class="xlabels"></div>
 		<div id="summary" class="stats"></div>
+	</div>
+	
+	<div class="table-container">
+		<h2>Detailed Statistics</h2>
 		<div id="tableWrap" class="table"></div>
 	</div>
 </div>
@@ -121,6 +508,7 @@ body {
 	const barsEl = document.getElementById('bars');
 	const xlabelsEl = document.getElementById('xlabels');
 	const summaryEl = document.getElementById('summary');
+	const modeLabel = document.querySelector('.user-label');
 
 	// default to mode 2 on load for stats
 	modeToggle.checked = true; // checked => mode 2
@@ -150,6 +538,10 @@ body {
 	function updateUserLabel(){
 		const u = readCurrentUser();
 		currentUserLabel.textContent = u ? ('Current: ' + u) : 'Current: —';
+	}
+	
+	function updateModeLabel(){
+		modeLabel.textContent = 'Mode ' + getModeValue();
 	}
 
 	function fetchTimes(){
@@ -194,12 +586,13 @@ body {
 		summaryEl.textContent = 'Average (non-zero): ' + overall + ' ms — Total samples: ' + count.reduce(function(a,b){return a+b;},0);
 	}
 
-	function renderTable(avg){
-		var html = ['<table><thead><tr><th>Number</th><th style="text-align:right">Average (sec)</th></tr></thead><tbody>'];
+	function renderTable(avg, count){
+		var html = ['<table><thead><tr><th>Number</th><th>Samples</th><th>Average (sec)</th></tr></thead><tbody>'];
 		for (var i = 0; i < 100; i++) {
 			var num = String(i).padStart(2, '0');
+			var samples = count[i] || 0;
 			var valSec = (((avg[i] || 0) / 1000).toFixed(2)) + ' sec';
-			html.push('<tr><td class="num">' + num + '</td><td class="avg">' + valSec + '</td></tr>');
+			html.push('<tr><td class="num">' + num + '</td><td class="samples">' + samples + '</td><td class="avg">' + valSec + '</td></tr>');
 		}
 		html.push('</tbody></table>');
 		document.getElementById('tableWrap').innerHTML = html.join('');
@@ -211,17 +604,21 @@ body {
 			var result = computeAverages(rows);
 			renderBars(result.avg);
 			renderSummary(result.avg, result.count);
-			renderTable(result.avg);
+			renderTable(result.avg, result.count);
 		});
 	}
 
-	modeToggle.addEventListener('change', refreshAll);
+	modeToggle.addEventListener('change', function(){
+		updateModeLabel();
+		refreshAll();
+	});
 	saveUser.addEventListener('click', function(){ writeCurrentUser(userInput.value); updateUserLabel(); refreshAll(); });
 	refresh.addEventListener('click', refreshAll);
 
 	document.addEventListener('DOMContentLoaded', function(){
 		userInput.value = readCurrentUser();
 		updateUserLabel();
+		updateModeLabel();
 		refreshAll();
 	});
 })();
