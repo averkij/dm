@@ -317,19 +317,6 @@ body {
 	stroke-linejoin: round;
 }
 
-.progress-point {
-	fill: var(--accent-secondary);
-	stroke: var(--text-primary);
-	stroke-width: 2;
-	cursor: pointer;
-	transition: var(--transition);
-}
-
-.progress-point:hover {
-	fill: var(--accent-primary);
-	r: 7;
-}
-
 .progress-x-labels {
 	display: flex;
 	justify-content: space-between;
@@ -893,31 +880,15 @@ body {
 
 		// Build path data
 		var pathPoints = [];
-		var circleData = [];
 
 		dailyData.forEach(function(day, idx){
 			var x = (idx / Math.max(1, numPoints - 1)) * 100;
 			var y = 100 - ((day.average - paddedMin) / (paddedMax - paddedMin)) * 100;
 			pathPoints.push((idx === 0 ? 'M' : 'L') + x + ' ' + y);
-			circleData.push({
-				x: x,
-				y: y,
-				value: (day.average / 1000).toFixed(2),
-				date: day.date
-			});
 		});
 
 		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">');
 		html.push('      <path class="progress-line" d="' + pathPoints.join(' ') + '" vector-effect="non-scaling-stroke"/>');
-		html.push('    </svg>');
-
-		// Add points as separate SVG with proper scaling
-		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" style="pointer-events: none;">');
-		circleData.forEach(function(point){
-			html.push('      <circle class="progress-point" cx="' + point.x + '" cy="' + point.y + '" r="1.5" style="pointer-events: auto;">');
-			html.push('        <title>' + point.date + ': ' + point.value + ' sec</title>');
-			html.push('      </circle>');
-		});
 		html.push('    </svg>');
 
 		html.push('  </div>');
