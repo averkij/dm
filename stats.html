@@ -271,6 +271,66 @@ body {
 	border: 1px solid var(--border-color);
 }
 
+.progress-chart {
+	background: var(--bg-primary);
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-sm);
+	padding: 24px;
+	min-height: 320px;
+	position: relative;
+}
+
+.progress-day {
+	display: flex;
+	align-items: flex-end;
+	gap: 2px;
+	margin-bottom: 16px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.progress-day-label {
+	min-width: 100px;
+	color: var(--text-secondary);
+	font-size: 14px;
+	font-weight: 600;
+	margin-right: 12px;
+}
+
+.progress-bar-container {
+	flex: 1;
+	height: 32px;
+	background: var(--bg-tertiary);
+	border-radius: 6px;
+	overflow: hidden;
+	position: relative;
+	border: 1px solid var(--border-color);
+}
+
+.progress-bar {
+	height: 100%;
+	background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+	border-radius: 6px;
+	transition: var(--transition);
+	position: relative;
+	min-width: 2px;
+}
+
+.progress-bar:hover {
+	background: linear-gradient(90deg, #2d7fea, #4cd964);
+	box-shadow: 0 0 12px rgba(31, 111, 235, 0.4);
+}
+
+.progress-value {
+	margin-left: 12px;
+	min-width: 80px;
+	text-align: right;
+	color: var(--text-primary);
+	font-weight: 600;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+	font-size: 14px;
+}
+
 .table-container {
 	background: var(--bg-secondary);
 	border-radius: var(--radius);
@@ -391,19 +451,34 @@ body {
 	.table-container {
 		padding: 16px;
 	}
-	
+
 	.table th,
 	.table td {
 		padding: 8px 6px;
 		font-size: 12px;
 	}
-	
+
 	.table .num {
 		width: 60px;
 	}
-	
+
 	.table .samples {
 		width: 80px;
+	}
+
+	.progress-chart {
+		padding: 16px;
+		min-height: 200px;
+	}
+
+	.progress-day-label {
+		min-width: 70px;
+		font-size: 12px;
+	}
+
+	.progress-value {
+		font-size: 12px;
+		min-width: 60px;
 	}
 }
 
@@ -460,6 +535,31 @@ body {
 	.table .samples {
 		width: 60px;
 	}
+
+	.progress-chart {
+		padding: 12px;
+		min-height: 150px;
+	}
+
+	.progress-day {
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.progress-day-label {
+		min-width: 100%;
+		font-size: 11px;
+		margin-bottom: 4px;
+	}
+
+	.progress-bar-container {
+		height: 24px;
+	}
+
+	.progress-value {
+		font-size: 11px;
+		min-width: 50px;
+	}
 }
 </style>
 </head>
@@ -491,7 +591,13 @@ body {
 		<div id="xlabels" class="xlabels"></div>
 		<div id="summary" class="stats"></div>
 	</div>
-	
+
+	<div class="chart">
+		<div class="chart-title">Daily Progress - Average Response Time</div>
+		<div id="progressChart" class="progress-chart"></div>
+		<div id="progressSummary" class="stats"></div>
+	</div>
+
 	<div class="table-container">
 		<h2>Detailed Statistics</h2>
 		<div id="tableWrap" class="table"></div>
@@ -598,6 +704,101 @@ body {
 		document.getElementById('tableWrap').innerHTML = html.join('');
 	}
 
+	function computeDailyAverages(rows){
+		// Group by date and calculate average time per day
+		var dayMap = {};
+		rows.forEach(function(row){
+			var t = Number(row.time);
+			if (!Number.isFinite(t)) return;
+
+			// Extract date from timestamp (assuming timestamp field exists)
+			// If timestamp is in milliseconds
+			var date;
+			if (row.timestamp) {
+				var d = new Date(row.timestamp);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else if (row.created_at) {
+				// If it's an ISO string
+				var d = new Date(row.created_at);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else {
+				// Fallback to today if no timestamp
+				var d = new Date();
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			}
+
+			if (!dayMap[date]) {
+				dayMap[date] = { sum: 0, count: 0 };
+			}
+			dayMap[date].sum += t;
+			dayMap[date].count += 1;
+		});
+
+		// Convert to array and sort by date
+		var dailyData = [];
+		Object.keys(dayMap).forEach(function(date){
+			var avg = dayMap[date].sum / dayMap[date].count;
+			dailyData.push({
+				date: date,
+				average: avg,
+				count: dayMap[date].count
+			});
+		});
+
+		// Sort by date ascending
+		dailyData.sort(function(a, b){
+			return a.date.localeCompare(b.date);
+		});
+
+		return dailyData;
+	}
+
+	function renderProgressChart(dailyData){
+		var chartEl = document.getElementById('progressChart');
+		var summaryEl = document.getElementById('progressSummary');
+
+		if (!dailyData || dailyData.length === 0) {
+			chartEl.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No data available</div>';
+			summaryEl.textContent = '';
+			return;
+		}
+
+		// Find max for scaling
+		var maxAvg = Math.max.apply(null, dailyData.map(function(d){ return d.average; }));
+		if (maxAvg === 0) maxAvg = 1;
+
+		// Build HTML
+		var html = [];
+		dailyData.forEach(function(day){
+			var percentage = (day.average / maxAvg) * 100;
+			var avgSec = (day.average / 1000).toFixed(2);
+			var dateLabel = day.date;
+
+			html.push('<div class="progress-day">');
+			html.push('  <div class="progress-day-label">' + dateLabel + '</div>');
+			html.push('  <div class="progress-bar-container">');
+			html.push('    <div class="progress-bar" style="width: ' + percentage + '%"></div>');
+			html.push('  </div>');
+			html.push('  <div class="progress-value">' + avgSec + ' sec</div>');
+			html.push('</div>');
+		});
+
+		chartEl.innerHTML = html.join('');
+
+		// Summary
+		var totalSamples = dailyData.reduce(function(sum, d){ return sum + d.count; }, 0);
+		var overallAvg = dailyData.reduce(function(sum, d){ return sum + d.average; }, 0) / dailyData.length;
+		summaryEl.textContent = 'Days tracked: ' + dailyData.length +
+								' — Overall average: ' + (overallAvg / 1000).toFixed(2) + ' sec' +
+								' — Total samples: ' + totalSamples;
+	}
+
 	function refreshAll(){
 		fetchTimes().then(function(data){
 			var rows = Array.isArray(data.rows) ? data.rows : [];
@@ -605,6 +806,10 @@ body {
 			renderBars(result.avg);
 			renderSummary(result.avg, result.count);
 			renderTable(result.avg, result.count);
+
+			// Render daily progress chart
+			var dailyData = computeDailyAverages(rows);
+			renderProgressChart(dailyData);
 		});
 	}
 
