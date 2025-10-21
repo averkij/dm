@@ -278,6 +278,88 @@ body {
 	padding: 24px;
 	min-height: 320px;
 	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+.progress-line-chart {
+	position: relative;
+	height: 280px;
+	margin: 20px 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.progress-chart-area {
+	position: relative;
+	flex: 1;
+	display: flex;
+	align-items: flex-end;
+	border-left: 2px solid var(--border-color);
+	border-bottom: 2px solid var(--border-color);
+	padding: 10px 10px 0 10px;
+}
+
+.progress-svg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.progress-line {
+	fill: none;
+	stroke: var(--accent-primary);
+	stroke-width: 3;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.progress-point {
+	fill: var(--accent-secondary);
+	stroke: var(--text-primary);
+	stroke-width: 2;
+	cursor: pointer;
+	transition: var(--transition);
+}
+
+.progress-point:hover {
+	fill: var(--accent-primary);
+	r: 7;
+}
+
+.progress-x-labels {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 10px;
+	padding: 0 10px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.progress-x-label {
+	text-align: center;
+	white-space: nowrap;
+	font-weight: 500;
+}
+
+.progress-y-axis {
+	position: absolute;
+	left: -50px;
+	top: 0;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	font-size: 11px;
+	color: var(--text-muted);
+	text-align: right;
+}
+
+.progress-y-label {
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 }
 
 .progress-day {
@@ -471,6 +553,14 @@ body {
 		min-height: 200px;
 	}
 
+	.progress-line-chart {
+		height: 200px;
+	}
+
+	.progress-x-labels {
+		font-size: 10px;
+	}
+
 	.progress-day-label {
 		min-width: 70px;
 		font-size: 12px;
@@ -539,6 +629,19 @@ body {
 	.progress-chart {
 		padding: 12px;
 		min-height: 150px;
+	}
+
+	.progress-line-chart {
+		height: 180px;
+	}
+
+	.progress-x-labels {
+		font-size: 9px;
+	}
+
+	.progress-y-axis {
+		font-size: 9px;
+		left: -40px;
 	}
 
 	.progress-day {
@@ -769,25 +872,73 @@ body {
 			return;
 		}
 
-		// Find max for scaling
+		// Find max and min for scaling
 		var maxAvg = Math.max.apply(null, dailyData.map(function(d){ return d.average; }));
+		var minAvg = Math.min.apply(null, dailyData.map(function(d){ return d.average; }));
 		if (maxAvg === 0) maxAvg = 1;
 
-		// Build HTML
-		var html = [];
-		dailyData.forEach(function(day){
-			var percentage = (day.average / maxAvg) * 100;
-			var avgSec = (day.average / 1000).toFixed(2);
-			var dateLabel = day.date;
+		// Add some padding to the range
+		var range = maxAvg - minAvg;
+		var paddedMax = maxAvg + (range * 0.1);
+		var paddedMin = Math.max(0, minAvg - (range * 0.1));
 
-			html.push('<div class="progress-day">');
-			html.push('  <div class="progress-day-label">' + dateLabel + '</div>');
-			html.push('  <div class="progress-bar-container">');
-			html.push('    <div class="progress-bar" style="width: ' + percentage + '%"></div>');
-			html.push('  </div>');
-			html.push('  <div class="progress-value">' + avgSec + ' sec</div>');
-			html.push('</div>');
+		// Build line chart HTML
+		var html = ['<div class="progress-line-chart">'];
+		html.push('  <div class="progress-chart-area">');
+
+		// Calculate SVG dimensions and points
+		var width = 100; // percentage based
+		var height = 100; // percentage based
+		var numPoints = dailyData.length;
+
+		// Build path data
+		var pathPoints = [];
+		var circleData = [];
+
+		dailyData.forEach(function(day, idx){
+			var x = (idx / Math.max(1, numPoints - 1)) * 100;
+			var y = 100 - ((day.average - paddedMin) / (paddedMax - paddedMin)) * 100;
+			pathPoints.push((idx === 0 ? 'M' : 'L') + x + ' ' + y);
+			circleData.push({
+				x: x,
+				y: y,
+				value: (day.average / 1000).toFixed(2),
+				date: day.date
+			});
 		});
+
+		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">');
+		html.push('      <path class="progress-line" d="' + pathPoints.join(' ') + '" vector-effect="non-scaling-stroke"/>');
+		html.push('    </svg>');
+
+		// Add points as separate SVG with proper scaling
+		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" style="pointer-events: none;">');
+		circleData.forEach(function(point){
+			html.push('      <circle class="progress-point" cx="' + point.x + '" cy="' + point.y + '" r="1.5" style="pointer-events: auto;">');
+			html.push('        <title>' + point.date + ': ' + point.value + ' sec</title>');
+			html.push('      </circle>');
+		});
+		html.push('    </svg>');
+
+		html.push('  </div>');
+
+		// X-axis labels - show first, last, and some intermediate dates
+		html.push('  <div class="progress-x-labels">');
+		var labelsToShow = Math.min(7, dailyData.length);
+		var labelStep = dailyData.length > 1 ? (dailyData.length - 1) / (labelsToShow - 1) : 1;
+
+		for (var i = 0; i < labelsToShow; i++) {
+			var idx = Math.round(i * labelStep);
+			if (idx < dailyData.length) {
+				var dateStr = dailyData[idx].date;
+				// Format date more compactly (MM/DD)
+				var parts = dateStr.split('-');
+				var shortDate = parts[1] + '/' + parts[2];
+				html.push('    <div class="progress-x-label">' + shortDate + '</div>');
+			}
+		}
+		html.push('  </div>');
+		html.push('</div>');
 
 		chartEl.innerHTML = html.join('');
 
