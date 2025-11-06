@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Random Image - 4 Digits</title>
+<style>
+:root {
+	--safe-top: env(safe-area-inset-top);
+	--safe-right: env(safe-area-inset-right);
+	--safe-bottom: env(safe-area-inset-bottom);
+	--safe-left: env(safe-area-inset-left);
+}
+html, body {
+	height: 100%;
+}
+body {
+	margin: 0;
+	padding: 0;
+	background: #000;
+	color: #fff;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	touch-action: manipulation; /* prevent double-tap zoom */
+	-webkit-tap-highlight-color: transparent;
+}
+/* Session timer centered at the top */
+#sessionTimer {
+	position: fixed;
+	top: calc(var(--safe-top) + 8px);
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 6;
+	font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+	font-weight: 700;
+	color: #aaa;
+}
+.main {
+	width: calc(100vw - var(--safe-left) - var(--safe-right));
+	height: calc(100vh - var(--safe-top) - var(--safe-bottom));
+	display: grid;
+	place-items: center;
+	position: relative; /* to anchor overlay over the image area */
+}
+img#photo {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	user-select: none;
+	-webkit-user-drag: none;
+}
+
+/* Second image in top right corner - quarter sized */
+img#photoSecond {
+	position: fixed;
+	top: calc(var(--safe-top) + 8px);
+	right: calc(var(--safe-right) + 8px);
+	width: 25vw;
+	height: 25vh;
+	object-fit: contain;
+	user-select: none;
+	-webkit-user-drag: none;
+	z-index: 3;
+	display: none; /* hidden by default */
+}
+
+#overlay {
+	position: absolute; /* overlay directly over the image container */
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	display: none; /* toggled to grid when visible */
+	place-items: center;
+	background: rgba(0,0,0,0); /* ensure fully transparent */
+	color: #fff;
+	font-size: clamp(32px, 10vw, 96px);
+	font-weight: 700;
+	text-align: center;
+	line-height: 1.2;
+	letter-spacing: 0.5px;
+	user-select: none;
+	pointer-events: none; /* allow taps to pass through */
+	z-index: 2; /* ensure overlay text is above the image */
+}
+
+/* Start screen overlay */
+#startOverlay {
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	display: grid;
+	place-items: center;
+	background: #000;
+	z-index: 5;
+}
+.user-label {
+	color: #ccc;
+	font-size: 14px;
+}
+
+/* Health indicator dot */
+#healthDot {
+	position: fixed;
+	top: calc(var(--safe-top) + 6px);
+	left: calc(var(--safe-left) + 6px);
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #ff3b30; /* default red until checked */
+	box-shadow: 0 0 0 2px rgba(0,0,0,.4);
+	z-index: 6;
+}
+.user-box {
+	display: grid;
+	gap: 12px;
+	place-items: center;
+}
+.user-input {
+	font-size: 18px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	border: 1px solid #444;
+	background: #111;
+	color: #fff;
+	min-width: 240px;
+}
+.user-save {
+	appearance: none;
+	border: none;
+	padding: 10px 16px;
+	border-radius: 8px;
+	font-size: 16px;
+	font-weight: 700;
+	cursor: pointer;
+	background: #2d7d46;
+	color: #fff;
+}
+.user-label {
+	color: #ccc;
+	font-size: 14px;
+}
+.start-button {
+	appearance: none;
+	border: none;
+	padding: 14px 28px;
+	border-radius: 10px;
+	font-size: 20px;
+	font-weight: 700;
+	cursor: pointer;
+	background: #0a84ff;
+	color: #fff;
+}
+.start-button:disabled {
+	background: #333;
+	cursor: default;
+}
+</style>
+</head>
+<body>
+	<div class="main">
+		<img id="photo" alt="Random" src="" />
+	</div>
+	<img id="photoSecond" alt="Second" src="" />
+	<div id="overlay" aria-hidden="true"></div>
+	<div id="startOverlay">
+		<div id="userGate" class="user-box" hidden>
+			<div>Enter user name</div>
+			<input id="userInput" class="user-input" type="text" placeholder="Your name" />
+			<span id="currentUserLabel" class="user-label"></span>
+			<button id="userSave" class="user-save">Continue</button>
+		</div>
+		<button id="startButton" class="start-button" hidden>Start</button>
+	</div>
+	<div id="healthDot" aria-hidden="true"></div>
+	<div id="sessionTimer" aria-hidden="true" style="display:none">02:00</div>
+<script>
+(function() {
+	// Backend host for API calls
+	const HOST = 'https://superminor.ru';
+
+	const basePath = 'img/';
+	const imgEl = document.getElementById('photo');
+	const imgSecondEl = document.getElementById('photoSecond');
+	const overlayEl = document.getElementById('overlay');
+	const startOverlay = document.getElementById('startOverlay');
+	const startButton = document.getElementById('startButton');
+	const userGate = document.getElementById('userGate');
+	const userInput = document.getElementById('userInput');
+	const userSave = document.getElementById('userSave');
+	const currentUserLabel = document.getElementById('currentUserLabel');
+	const healthDot = document.getElementById('healthDot');
+	const sessionTimerEl = document.getElementById('sessionTimer');
+
+	let lastNumber = -1;
+	let isTransitioning = false;
+	let pendingNumber = null; // next 4-digit number
+	const preloadMap = new Map();
+
+	// Session timing & per-stimulus timing
+	let sessionActive = false;
+	let tapStartTs = 0; // resets whenever a new number/image is shown
+	let timerHandle = null;
+	let sessionTicker = null; // interval to update visible countdown
+	let sessionDeadlineTs = 0; // timestamp when session should end
+
+	function formatRemaining(ms) {
+		var totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+		var minutes = Math.floor(totalSeconds / 60);
+		var seconds = totalSeconds % 60;
+		return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+	}
+
+	function updateSessionTimerUI() {
+		if (!sessionActive) return;
+		var remaining = sessionDeadlineTs - Date.now();
+		if (remaining <= 0) {
+			stopSession("Time's up");
+			return;
+		}
+		sessionTimerEl.textContent = formatRemaining(remaining);
+	}
+
+	function restartSessionTimer() {
+		if (!sessionActive) return;
+		if (timerHandle) {
+			clearTimeout(timerHandle);
+			timerHandle = null;
+		}
+		if (sessionTicker) {
+			clearInterval(sessionTicker);
+			sessionTicker = null;
+		}
+		sessionDeadlineTs = Date.now() + 120000;
+		sessionTimerEl.style.display = 'block';
+		updateSessionTimerUI();
+		timerHandle = setTimeout(function() { stopSession("Time's up"); }, 120000);
+		sessionTicker = setInterval(updateSessionTimerUI, 200);
+	}
+
+	function preloadImage(src) {
+		if (preloadMap.has(src)) return preloadMap.get(src);
+		let resolveFn;
+		const p = new Promise(function(resolve) { resolveFn = resolve; });
+		const temp = new Image();
+		function done() { resolveFn(); }
+		if (typeof temp.decode === 'function') {
+			temp.src = src;
+			temp.decode().then(done).catch(done);
+		} else {
+			temp.onload = done;
+			temp.onerror = done;
+			temp.src = src;
+		}
+		preloadMap.set(src, p);
+		return p;
+	}
+
+	// Generate random 4-digit number (0000-9999)
+	function generateRandom4Digit() {
+		let num;
+		do {
+			num = Math.floor(Math.random() * 10000);
+		} while (num === lastNumber);
+		lastNumber = num;
+		return num;
+	}
+
+	function generateFresh4Digit() {
+		let num;
+		do {
+			num = Math.floor(Math.random() * 10000);
+		} while (num === lastNumber);
+		return num; // does NOT mutate lastNumber
+	}
+
+	// Convert 4-digit number to string with padding
+	function format4Digit(num) {
+		return String(num).padStart(4, '0');
+	}
+
+	// Split 4-digit number into two 2-digit parts
+	function split4Digit(num) {
+		const str = format4Digit(num);
+		const first = str.substring(0, 2);
+		const second = str.substring(2, 4);
+		return { first, second };
+	}
+
+	function showNumberForDigits(num) {
+		const numStr = format4Digit(num);
+		const parts = split4Digit(num);
+
+		overlayEl.textContent = numStr;
+		overlayEl.style.color = '#000';
+		overlayEl.style.background = '#fff';
+		overlayEl.style.display = 'grid';
+
+		// Preload both images while the number is visible
+		const src1 = basePath + parts.first + '.jpg';
+		const src2 = basePath + parts.second + '.jpg';
+		preloadImage(src1);
+		preloadImage(src2);
+
+		// start per-tap timer when stimulus (number) is visible
+		tapStartTs = Date.now();
+		restartSessionTimer();
+	}
+
+	function stopSession(reasonText) {
+		sessionActive = false;
+		if (timerHandle) {
+			clearTimeout(timerHandle);
+			timerHandle = null;
+		}
+		if (sessionTicker) {
+			clearInterval(sessionTicker);
+			sessionTicker = null;
+		}
+		sessionTimerEl.style.display = 'none';
+		startButton.textContent = reasonText || 'Time\'s up';
+		startButton.disabled = true;
+		startOverlay.style.display = 'grid';
+		// Hide second image when session stops
+		imgSecondEl.style.display = 'none';
+	}
+
+	function startSession() {
+		sessionActive = true;
+		if (timerHandle) { clearTimeout(timerHandle); timerHandle = null; }
+		if (sessionTicker) { clearInterval(sessionTicker); sessionTicker = null; }
+		// Start with a random number
+		pendingNumber = generateFresh4Digit();
+		showNumberForDigits(pendingNumber);
+	}
+
+	startButton.addEventListener('click', function() {
+		startOverlay.style.display = 'none';
+		startSession();
+	});
+
+	function sendTime(numberStr, elapsedMs, modeValue) {
+		try {
+			var currentUser = localStorage.getItem('current_user') || null;
+			fetch(HOST + '/api/write_time', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ number: Number(numberStr), time: elapsedMs, mode: modeValue, user: currentUser })
+			}).catch(function(){});
+		} catch (e) {}
+	}
+
+	function showGateIfNeeded() {
+		var existing = localStorage.getItem('current_user');
+		if (!existing) {
+			userGate.hidden = false;
+			startButton.hidden = true;
+			userInput.focus();
+		} else {
+			userGate.hidden = true;
+			startButton.hidden = false;
+		}
+	}
+
+	function updateUserLabel() {
+		var u = localStorage.getItem('current_user') || '';
+		currentUserLabel.textContent = u ? ('Current: ' + u) : 'Current: —';
+	}
+
+	userSave.addEventListener('click', function() {
+		var v = (userInput.value || '').trim();
+		if (!v) return;
+		localStorage.setItem('current_user', v);
+		updateUserLabel();
+		showGateIfNeeded();
+	});
+
+	userInput.addEventListener('keyup', function(e) {
+		if (e.key === 'Enter') userSave.click();
+	});
+
+	document.addEventListener('DOMContentLoaded', function() {
+		userInput.value = localStorage.getItem('current_user') || '';
+		updateUserLabel();
+		showGateIfNeeded();
+		// Check API health once on load
+		(function checkHealthOnce(){
+			try {
+				fetch(HOST + '/api/health', { method: 'GET', cache: 'no-store' })
+					.then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+					.then(function(data){
+						if (data && data.status === 'ok') {
+							healthDot.style.background = '#2ecc71';
+						} else {
+							healthDot.style.background = '#ff3b30';
+						}
+					})
+					.catch(function(){ healthDot.style.background = '#ff3b30'; });
+			} catch (e) {
+				healthDot.style.background = '#ff3b30';
+			}
+		})();
+	});
+
+	// Use pointer events so it works on both touch and mouse without double-firing
+	window.addEventListener('pointerdown', function(ev) {
+		if (!sessionActive) return;
+		if (ev.isPrimary === false) return; // ignore secondary pointers
+		if (isTransitioning) return;
+		isTransitioning = true;
+
+		// Compute elapsed from when the current stimulus appeared
+		var tapElapsed = Math.max(0, Date.now() - tapStartTs);
+		var numberForEvent = null;
+
+		if (pendingNumber === null) pendingNumber = generateFresh4Digit();
+		numberForEvent = format4Digit(pendingNumber);
+
+		// Currently showing a number on white background.
+		// Show its images (main + second), then next number after 2s.
+		const parts = split4Digit(pendingNumber);
+		const src1 = basePath + parts.first + '.jpg';
+		const src2 = basePath + parts.second + '.jpg';
+
+		// Preload both images, then show them
+		Promise.all([preloadImage(src1), preloadImage(src2)]).then(function() {
+			imgEl.src = src1;
+			imgSecondEl.src = src2;
+			imgSecondEl.style.display = 'block';
+			overlayEl.style.display = 'none';
+			lastNumber = pendingNumber;
+			restartSessionTimer();
+
+			setTimeout(function() {
+				imgSecondEl.style.display = 'none'; // hide second image before showing next number
+				pendingNumber = generateFresh4Digit();
+				showNumberForDigits(pendingNumber);
+				isTransitioning = false;
+			}, 2000);
+		});
+
+		// Send timing for this tap (mode 3)
+		if (numberForEvent !== null) {
+			sendTime(numberForEvent, tapElapsed, 3);
+		}
+	});
+})();
+</script>
+</body>
+</html>
