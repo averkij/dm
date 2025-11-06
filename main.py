@@ -69,8 +69,8 @@ def write_time():
         time_ms = int(str(time_raw))
         mode_value = int(str(mode_raw))
 
-        if mode_value not in (1, 2):
-            raise ValueError('mode must be 1 or 2')
+        if mode_value not in (1, 2, 3):
+            raise ValueError('mode must be 1, 2 or 3')
 
         user_value = None if user_raw in (None, "") else str(user_raw)[:255]
 
@@ -97,11 +97,11 @@ def get_time():
 
     Query params:
     - user: string (optional, if omitted returns rows with NULL user)
-    - mode: 1 or 2 (required)
+    - mode: 1, 2 or 3 (required)
     """
     mode_param = request.args.get('mode', type=int)
     user_param = request.args.get('user', default=None, type=str)
-    if mode_param not in (1, 2):
+    if mode_param not in (1, 2, 3):
         return jsonify({"error": "mode must be 1 or 2"}), 400
 
     with sqlite3.connect(DB_PATH) as conn:
