@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Performance Statistics - Mode 3</title>
+<style>
+:root {
+	--bg-primary: #0d1117;
+	--bg-secondary: #161b22;
+	--bg-tertiary: #21262d;
+	--text-primary: #f0f6fc;
+	--text-secondary: #8b949e;
+	--text-muted: #6e7681;
+	--accent-primary: #1f6feb;
+	--accent-secondary: #238636;
+	--border-color: #30363d;
+	--shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	--shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.2);
+	--radius: 16px;
+	--radius-sm: 10px;
+	--font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+	--transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html, body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	background: linear-gradient(135deg, var(--bg-primary) 0%, #0d1117 50%, #161b22 100%);
+	color: var(--text-primary);
+	font-family: var(--font-family);
+	font-size: 16px;
+	line-height: 1.6;
+	display: grid;
+	grid-template-rows: auto 1fr;
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 24px;
+	background: rgba(13, 17, 23, 0.95);
+	backdrop-filter: blur(24px);
+	border-bottom: 1px solid var(--border-color);
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	box-shadow: var(--shadow-sm);
+}
+
+.topbar h1 {
+	margin: 0;
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--text-primary);
+	background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.controls {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.control-group {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.user-input {
+	font-size: 16px;
+	padding: 14px 18px;
+	border-radius: var(--radius-sm);
+	border: 2px solid var(--border-color);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	min-width: 200px;
+	transition: var(--transition);
+	font-weight: 500;
+}
+
+.user-input:focus {
+	outline: none;
+	border-color: var(--accent-primary);
+	box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.15);
+	background: var(--bg-primary);
+}
+
+.btn {
+	appearance: none;
+	border: none;
+	padding: 14px 24px;
+	border-radius: var(--radius-sm);
+	font-weight: 600;
+	cursor: pointer;
+	font-size: 16px;
+	transition: var(--transition);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	font-family: var(--font-family);
+}
+
+.btn-primary {
+	background: linear-gradient(135deg, var(--accent-primary), #1a5490);
+	color: var(--text-primary);
+	box-shadow: 0 4px 16px rgba(31, 111, 235, 0.3);
+}
+
+.btn-primary:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 24px rgba(31, 111, 235, 0.4);
+	background: linear-gradient(135deg, #2d7fea, #1a5490);
+}
+
+.btn-secondary {
+	background: var(--bg-tertiary);
+	color: var(--text-secondary);
+	border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	border-color: var(--accent-primary);
+	transform: translateY(-1px);
+}
+
+.user-label {
+	color: var(--text-secondary);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.content {
+	padding: 32px;
+	overflow: auto;
+	max-width: 1400px;
+	margin: 0 auto;
+	width: 100%;
+}
+
+.chart {
+	margin-bottom: 40px;
+	background: var(--bg-secondary);
+	border-radius: var(--radius);
+	padding: 32px;
+	box-shadow: var(--shadow);
+	border: 1px solid var(--border-color);
+}
+
+.chart-title {
+	font-size: 22px;
+	font-weight: 700;
+	margin-bottom: 24px;
+	color: var(--text-primary);
+	text-align: center;
+	letter-spacing: -0.5px;
+}
+
+.stats {
+	margin-top: 20px;
+	color: var(--text-secondary);
+	font-size: 16px;
+	text-align: center;
+	font-weight: 500;
+	padding: 16px;
+	background: var(--bg-primary);
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--border-color);
+}
+
+.progress-chart {
+	background: var(--bg-primary);
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-sm);
+	padding: 24px;
+	min-height: 320px;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+.progress-line-chart {
+	position: relative;
+	height: 280px;
+	margin: 20px 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.progress-chart-area {
+	position: relative;
+	flex: 1;
+	display: flex;
+	align-items: flex-end;
+	border-left: 2px solid var(--border-color);
+	border-bottom: 2px solid var(--border-color);
+	padding: 10px 10px 0 10px;
+}
+
+.progress-svg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.progress-line {
+	fill: none;
+	stroke: var(--accent-primary);
+	stroke-width: 3;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.progress-x-labels {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 10px;
+	padding: 0 10px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.progress-x-label {
+	text-align: center;
+	white-space: nowrap;
+	font-weight: 500;
+}
+
+.table-container {
+	background: var(--bg-secondary);
+	border-radius: var(--radius);
+	padding: 32px;
+	box-shadow: var(--shadow);
+	border: 1px solid var(--border-color);
+	overflow-x: auto;
+}
+
+.table-container h2 {
+	font-size: 22px;
+	font-weight: 700;
+	margin-bottom: 24px;
+	color: var(--text-primary);
+	text-align: center;
+	letter-spacing: -0.5px;
+}
+
+.table {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--bg-primary);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	border: 1px solid var(--border-color);
+}
+
+.table th {
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
+	font-weight: 700;
+	padding: 18px 16px;
+	text-align: left;
+	font-size: 14px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	border-bottom: 2px solid var(--border-color);
+}
+
+.table td {
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--border-color);
+	color: var(--text-secondary);
+	font-size: 14px;
+}
+
+.table tr:nth-child(even) td {
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.table tr:hover td {
+	background: rgba(0, 122, 255, 0.1);
+	color: var(--text-primary);
+}
+
+.table .num {
+	width: 80px;
+	color: var(--text-primary);
+	font-weight: 600;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.table .samples {
+	width: 100px;
+	text-align: center;
+	color: var(--accent-secondary);
+	font-weight: 600;
+}
+
+.table .avg {
+	text-align: right;
+	color: var(--text-primary);
+	font-weight: 500;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+	.topbar {
+		flex-direction: column;
+		gap: 16px;
+		padding: 16px;
+	}
+
+	.topbar h1 {
+		font-size: 20px;
+	}
+
+	.controls {
+		justify-content: center;
+		gap: 12px;
+	}
+
+	.user-input {
+		min-width: 150px;
+		font-size: 16px;
+	}
+
+	.content {
+		padding: 16px;
+	}
+
+	.chart {
+		padding: 16px;
+	}
+
+	.table-container {
+		padding: 16px;
+	}
+
+	.table th,
+	.table td {
+		padding: 8px 6px;
+		font-size: 12px;
+	}
+
+	.table .num {
+		width: 60px;
+	}
+
+	.table .samples {
+		width: 80px;
+	}
+
+	.progress-chart {
+		padding: 16px;
+		min-height: 200px;
+	}
+
+	.progress-line-chart {
+		height: 200px;
+	}
+
+	.progress-x-labels {
+		font-size: 10px;
+	}
+}
+
+@media (max-width: 480px) {
+	.topbar h1 {
+		font-size: 18px;
+	}
+
+	.controls {
+		flex-direction: column;
+		width: 100%;
+	}
+
+	.control-group {
+		width: 100%;
+		justify-content: center;
+	}
+
+	.user-input {
+		width: 100%;
+		min-width: auto;
+	}
+
+	.chart {
+		padding: 12px;
+	}
+
+	.table-container {
+		padding: 12px;
+	}
+
+	.table th,
+	.table td {
+		padding: 6px 4px;
+		font-size: 11px;
+	}
+
+	.table .num {
+		width: 50px;
+	}
+
+	.table .samples {
+		width: 60px;
+	}
+
+	.progress-chart {
+		padding: 12px;
+		min-height: 150px;
+	}
+
+	.progress-line-chart {
+		height: 180px;
+	}
+
+	.progress-x-labels {
+		font-size: 9px;
+	}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+	<h1>Performance Statistics - Mode 3</h1>
+	<div class="controls">
+		<div class="control-group">
+			<input id="userInput" class="user-input" type="text" placeholder="Set current user" />
+			<span id="currentUserLabel" class="user-label"></span>
+		</div>
+		<div class="control-group">
+			<button id="saveUser" class="btn btn-primary">Save</button>
+			<button id="refresh" class="btn btn-secondary">Refresh</button>
+		</div>
+	</div>
+</div>
+<div class="content">
+	<div class="chart">
+		<div class="chart-title">Daily Progress - Average Response Time</div>
+		<div id="progressChart" class="progress-chart"></div>
+		<div id="progressSummary" class="stats"></div>
+	</div>
+
+	<div class="table-container">
+		<h2>Detailed Statistics (4-Digit Numbers)</h2>
+		<div id="tableWrap" class="table"></div>
+	</div>
+</div>
+<script>
+(function(){
+	const HOST = 'https://superminor.ru';
+	const userInput = document.getElementById('userInput');
+	const saveUser = document.getElementById('saveUser');
+	const refresh = document.getElementById('refresh');
+	const currentUserLabel = document.getElementById('currentUserLabel');
+
+	function readCurrentUser(){
+		return localStorage.getItem('current_user') || '';
+	}
+
+	function writeCurrentUser(v){
+		if ((v||'').trim()) localStorage.setItem('current_user', v.trim());
+	}
+
+	function updateUserLabel(){
+		const u = readCurrentUser();
+		currentUserLabel.textContent = u ? ('Current: ' + u) : 'Current: —';
+	}
+
+	function fetchTimes(){
+		const user = readCurrentUser();
+		const mode = 3; // Fixed mode 3
+		const params = new URLSearchParams();
+		params.set('mode', String(mode));
+		if (user) params.set('user', user);
+		return fetch(HOST + '/api/get_time?' + params.toString()).then(function(r){ return r.json(); });
+	}
+
+	function computeAverages(rows){
+		const sum = {};
+		const count = {};
+		rows.forEach(function(row){
+			const num = Number(row.number);
+			const t = Number(row.time);
+			if (Number.isInteger(num) && num >= 0 && num <= 9999 && Number.isFinite(t)){
+				if (!sum[num]) {
+					sum[num] = 0;
+					count[num] = 0;
+				}
+				sum[num] += t;
+				count[num] += 1;
+			}
+		});
+
+		const avg = {};
+		Object.keys(sum).forEach(function(num){
+			avg[num] = sum[num] / count[num];
+		});
+
+		return { avg: avg, count: count };
+	}
+
+	function renderTable(avg, count){
+		var html = ['<table class="table"><thead><tr><th>Number</th><th>Samples</th><th>Average (sec)</th></tr></thead><tbody>'];
+
+		// Get all numbers that have been tested (count > 0)
+		var numbers = Object.keys(count).map(Number).sort(function(a, b){ return a - b; });
+
+		numbers.forEach(function(num){
+			if (count[num] > 0) { // Only show lines with count > 0
+				var numStr = String(num).padStart(4, '0');
+				var samples = count[num];
+				var valSec = (((avg[num] || 0) / 1000).toFixed(2)) + ' sec';
+				html.push('<tr><td class="num">' + numStr + '</td><td class="samples">' + samples + '</td><td class="avg">' + valSec + '</td></tr>');
+			}
+		});
+
+		html.push('</tbody></table>');
+		document.getElementById('tableWrap').innerHTML = html.join('');
+	}
+
+	function computeDailyAverages(rows){
+		// Group by date and calculate average time per day
+		var dayMap = {};
+		rows.forEach(function(row){
+			var t = Number(row.time);
+			if (!Number.isFinite(t)) return;
+
+			// Extract date from timestamp (assuming timestamp field exists)
+			// If timestamp is in milliseconds
+			var date;
+			if (row.timestamp) {
+				var d = new Date(row.timestamp);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else if (row.created_at) {
+				// If it's an ISO string
+				var d = new Date(row.created_at);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else {
+				// Fallback to today if no timestamp
+				var d = new Date();
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			}
+
+			if (!dayMap[date]) {
+				dayMap[date] = { sum: 0, count: 0 };
+			}
+			dayMap[date].sum += t;
+			dayMap[date].count += 1;
+		});
+
+		// Convert to array and sort by date
+		var dailyData = [];
+		Object.keys(dayMap).forEach(function(date){
+			var avg = dayMap[date].sum / dayMap[date].count;
+			dailyData.push({
+				date: date,
+				average: avg,
+				count: dayMap[date].count
+			});
+		});
+
+		// Sort by date ascending
+		dailyData.sort(function(a, b){
+			return a.date.localeCompare(b.date);
+		});
+
+		return dailyData;
+	}
+
+	function renderProgressChart(dailyData){
+		var chartEl = document.getElementById('progressChart');
+		var summaryEl = document.getElementById('progressSummary');
+
+		if (!dailyData || dailyData.length === 0) {
+			chartEl.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No data available</div>';
+			summaryEl.textContent = '';
+			return;
+		}
+
+		// Find max and min for scaling
+		var maxAvg = Math.max.apply(null, dailyData.map(function(d){ return d.average; }));
+		var minAvg = Math.min.apply(null, dailyData.map(function(d){ return d.average; }));
+		if (maxAvg === 0) maxAvg = 1;
+
+		// Add some padding to the range
+		var range = maxAvg - minAvg;
+		var paddedMax = maxAvg + (range * 0.1);
+		var paddedMin = Math.max(0, minAvg - (range * 0.1));
+
+		// Build line chart HTML
+		var html = ['<div class="progress-line-chart">'];
+		html.push('  <div class="progress-chart-area">');
+
+		// Calculate SVG dimensions and points
+		var width = 100; // percentage based
+		var height = 100; // percentage based
+		var numPoints = dailyData.length;
+
+		// Build path data
+		var pathPoints = [];
+
+		dailyData.forEach(function(day, idx){
+			var x = (idx / Math.max(1, numPoints - 1)) * 100;
+			var y = 100 - ((day.average - paddedMin) / (paddedMax - paddedMin)) * 100;
+			pathPoints.push((idx === 0 ? 'M' : 'L') + x + ' ' + y);
+		});
+
+		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">');
+		html.push('      <path class="progress-line" d="' + pathPoints.join(' ') + '" vector-effect="non-scaling-stroke"/>');
+		html.push('    </svg>');
+
+		html.push('  </div>');
+
+		// X-axis labels - show first, last, and some intermediate dates
+		html.push('  <div class="progress-x-labels">');
+		var labelsToShow = Math.min(7, dailyData.length);
+		var labelStep = dailyData.length > 1 ? (dailyData.length - 1) / (labelsToShow - 1) : 1;
+
+		for (var i = 0; i < labelsToShow; i++) {
+			var idx = Math.round(i * labelStep);
+			if (idx < dailyData.length) {
+				var dateStr = dailyData[idx].date;
+				// Format date more compactly (MM/DD)
+				var parts = dateStr.split('-');
+				var shortDate = parts[1] + '/' + parts[2];
+				html.push('    <div class="progress-x-label">' + shortDate + '</div>');
+			}
+		}
+		html.push('  </div>');
+		html.push('</div>');
+
+		chartEl.innerHTML = html.join('');
+
+		// Summary
+		var totalSamples = dailyData.reduce(function(sum, d){ return sum + d.count; }, 0);
+		var overallAvg = dailyData.reduce(function(sum, d){ return sum + d.average; }, 0) / dailyData.length;
+		summaryEl.textContent = 'Days tracked: ' + dailyData.length +
+								' — Overall average: ' + (overallAvg / 1000).toFixed(2) + ' sec' +
+								' — Total samples: ' + totalSamples;
+	}
+
+	function refreshAll(){
+		fetchTimes().then(function(data){
+			var rows = Array.isArray(data.rows) ? data.rows : [];
+			var result = computeAverages(rows);
+			renderTable(result.avg, result.count);
+
+			// Render daily progress chart
+			var dailyData = computeDailyAverages(rows);
+			renderProgressChart(dailyData);
+		});
+	}
+
+	saveUser.addEventListener('click', function(){ writeCurrentUser(userInput.value); updateUserLabel(); refreshAll(); });
+	refresh.addEventListener('click', refreshAll);
+
+	document.addEventListener('DOMContentLoaded', function(){
+		userInput.value = readCurrentUser();
+		updateUserLabel();
+		refreshAll();
+	});
+})();
+</script>
+</body>
+</html>
