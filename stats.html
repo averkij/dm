@@ -237,12 +237,18 @@ body {
 	background: linear-gradient(to top, var(--accent-secondary), #2d7d46);
 	border-radius: 1px;
 	transition: var(--transition);
+	cursor: pointer;
 }
 
 .bar:hover {
 	background: linear-gradient(to top, #4cd964, #34c759);
 	transform: scaleY(1.05);
 	box-shadow: 0 0 8px rgba(35, 134, 54, 0.3);
+}
+
+.bar.selected {
+	background: linear-gradient(to top, var(--accent-primary), #2d7fea);
+	box-shadow: 0 0 12px rgba(31, 111, 235, 0.5);
 }
 
 .bar.zero {
@@ -682,6 +688,12 @@ body {
 		<div id="summary" class="stats"></div>
 	</div>
 
+	<div id="digitChart" class="chart" style="display: none;">
+		<div class="chart-title">Digit <span id="selectedDigit"></span> - Time Over All Attempts</div>
+		<div id="digitLineChart" class="progress-chart"></div>
+		<div id="digitSummary" class="stats"></div>
+	</div>
+
 	<div class="chart">
 		<div class="chart-title">Daily Progress - Average Response Time</div>
 		<div id="progressChart" class="progress-chart"></div>
@@ -705,6 +717,9 @@ body {
 	const xlabelsEl = document.getElementById('xlabels');
 	const summaryEl = document.getElementById('summary');
 	const modeLabel = document.querySelector('.user-label');
+
+	// Store raw data rows for digit-specific charts
+	let allDataRows = [];
 
 	// default to mode 2 on load for stats
 	modeToggle.checked = true; // checked => mode 2
@@ -767,11 +782,18 @@ body {
 	function renderBars(avg){
 		barsEl.innerHTML = '';
 		const max = Math.max(1, Math.max.apply(null, avg));
-		avg.forEach(function(value){
+		avg.forEach(function(value, index){
 			const bar = document.createElement('div');
 			bar.className = 'bar' + (value === 0 ? ' zero' : '');
 			const h = (value / max) * 100;
 			bar.style.height = h + '%';
+			bar.dataset.digit = index;
+
+			// Add click event listener
+			bar.addEventListener('click', function(){
+				showDigitChart(index);
+			});
+
 			barsEl.appendChild(bar);
 		});
 	}
@@ -921,9 +943,121 @@ body {
 								' — Total samples: ' + totalSamples;
 	}
 
+	function showDigitChart(digit){
+		// Remove selected class from all bars
+		var allBars = barsEl.querySelectorAll('.bar');
+		allBars.forEach(function(b){ b.classList.remove('selected'); });
+
+		// Add selected class to clicked bar
+		if (allBars[digit]) {
+			allBars[digit].classList.add('selected');
+		}
+
+		// Filter data for this digit
+		var digitData = allDataRows.filter(function(row){
+			return Number(row.number) === digit;
+		}).map(function(row){
+			return {
+				time: Number(row.time),
+				timestamp: row.timestamp || row.created_at
+			};
+		});
+
+		// Sort by timestamp if available
+		digitData.sort(function(a, b){
+			if (a.timestamp && b.timestamp) {
+				return new Date(a.timestamp) - new Date(b.timestamp);
+			}
+			return 0;
+		});
+
+		// Show the chart
+		renderDigitLineChart(digit, digitData);
+	}
+
+	function renderDigitLineChart(digit, digitData){
+		var chartEl = document.getElementById('digitLineChart');
+		var summaryEl = document.getElementById('digitSummary');
+		var digitChartEl = document.getElementById('digitChart');
+		var selectedDigitEl = document.getElementById('selectedDigit');
+
+		// Update title
+		selectedDigitEl.textContent = String(digit).padStart(2, '0');
+
+		// Show the chart container
+		digitChartEl.style.display = 'block';
+
+		// Scroll to the chart
+		digitChartEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+		if (!digitData || digitData.length === 0) {
+			chartEl.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No data available for this digit</div>';
+			summaryEl.textContent = '';
+			return;
+		}
+
+		// Convert times to seconds
+		var times = digitData.map(function(d){ return d.time / 1000; });
+
+		// Find max and min for scaling
+		var maxTime = Math.max.apply(null, times);
+		var minTime = Math.min.apply(null, times);
+		if (maxTime === 0) maxTime = 1;
+
+		// Add some padding to the range
+		var range = maxTime - minTime;
+		var paddedMax = maxTime + (range * 0.1);
+		var paddedMin = Math.max(0, minTime - (range * 0.1));
+
+		// Build line chart HTML
+		var html = ['<div class="progress-line-chart">'];
+		html.push('  <div class="progress-chart-area" style="position: relative;">');
+
+		// Y-axis labels
+		html.push('    <div class="progress-y-axis">');
+		var numYLabels = 5;
+		for (var i = 0; i < numYLabels; i++) {
+			var value = paddedMax - (i * (paddedMax - paddedMin) / (numYLabels - 1));
+			html.push('      <div class="progress-y-label">' + value.toFixed(2) + 's</div>');
+		}
+		html.push('    </div>');
+
+		// Calculate SVG dimensions and points
+		var numPoints = times.length;
+
+		// Build path data
+		var pathPoints = [];
+
+		times.forEach(function(time, idx){
+			var x = (idx / Math.max(1, numPoints - 1)) * 100;
+			var y = 100 - ((time - paddedMin) / (paddedMax - paddedMin)) * 100;
+			pathPoints.push((idx === 0 ? 'M' : 'L') + x + ' ' + y);
+		});
+
+		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">');
+		html.push('      <path class="progress-line" d="' + pathPoints.join(' ') + '" vector-effect="non-scaling-stroke"/>');
+		html.push('    </svg>');
+
+		html.push('  </div>');
+		html.push('</div>');
+
+		chartEl.innerHTML = html.join('');
+
+		// Summary
+		var avgTime = times.reduce(function(sum, t){ return sum + t; }, 0) / times.length;
+		summaryEl.textContent = 'Total attempts: ' + times.length +
+								' — Average: ' + avgTime.toFixed(2) + ' sec' +
+								' — Min: ' + minTime.toFixed(2) + ' sec' +
+								' — Max: ' + maxTime.toFixed(2) + ' sec';
+	}
+
 	function refreshAll(){
 		fetchTimes().then(function(data){
 			var rows = Array.isArray(data.rows) ? data.rows : [];
+
+			// Store raw data for digit-specific charts
+			allDataRows = rows;
+
 			var result = computeAverages(rows);
 			renderBars(result.avg);
 			renderSummary(result.avg, result.count);
@@ -932,6 +1066,9 @@ body {
 			// Render daily progress chart
 			var dailyData = computeDailyAverages(rows);
 			renderProgressChart(dailyData);
+
+			// Hide digit chart on refresh
+			document.getElementById('digitChart').style.display = 'none';
 		});
 	}
 
