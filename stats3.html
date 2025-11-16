@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Performance Statistics - Mode 4</title>
+<style>
+:root {
+	--bg-primary: #0d1117;
+	--bg-secondary: #161b22;
+	--bg-tertiary: #21262d;
+	--text-primary: #f0f6fc;
+	--text-secondary: #8b949e;
+	--text-muted: #6e7681;
+	--accent-primary: #1f6feb;
+	--accent-secondary: #238636;
+	--border-color: #30363d;
+	--shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	--shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.2);
+	--radius: 16px;
+	--radius-sm: 10px;
+	--font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+	--transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html, body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	background: linear-gradient(135deg, var(--bg-primary) 0%, #0d1117 50%, #161b22 100%);
+	color: var(--text-primary);
+	font-family: var(--font-family);
+	font-size: 16px;
+	line-height: 1.6;
+	display: grid;
+	grid-template-rows: auto 1fr;
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 24px;
+	background: rgba(13, 17, 23, 0.95);
+	backdrop-filter: blur(24px);
+	border-bottom: 1px solid var(--border-color);
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	box-shadow: var(--shadow-sm);
+}
+
+.topbar h1 {
+	margin: 0;
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--text-primary);
+	background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.controls {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.control-group {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.user-input {
+	font-size: 16px;
+	padding: 14px 18px;
+	border-radius: var(--radius-sm);
+	border: 2px solid var(--border-color);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	min-width: 200px;
+	transition: var(--transition);
+	font-weight: 500;
+}
+
+.user-input:focus {
+	outline: none;
+	border-color: var(--accent-primary);
+	box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.15);
+	background: var(--bg-primary);
+}
+
+.btn {
+	appearance: none;
+	border: none;
+	padding: 14px 24px;
+	border-radius: var(--radius-sm);
+	font-weight: 600;
+	cursor: pointer;
+	font-size: 16px;
+	transition: var(--transition);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	font-family: var(--font-family);
+}
+
+.btn-primary {
+	background: linear-gradient(135deg, var(--accent-primary), #1a5490);
+	color: var(--text-primary);
+	box-shadow: 0 4px 16px rgba(31, 111, 235, 0.3);
+}
+
+.btn-primary:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 24px rgba(31, 111, 235, 0.4);
+	background: linear-gradient(135deg, #2d7fea, #1a5490);
+}
+
+.btn-secondary {
+	background: var(--bg-tertiary);
+	color: var(--text-secondary);
+	border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	border-color: var(--accent-primary);
+	transform: translateY(-1px);
+}
+
+.user-label {
+	color: var(--text-secondary);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.content {
+	padding: 32px;
+	overflow: auto;
+	max-width: 1400px;
+	margin: 0 auto;
+	width: 100%;
+}
+
+.chart {
+	margin-bottom: 40px;
+	background: var(--bg-secondary);
+	border-radius: var(--radius);
+	padding: 32px;
+	box-shadow: var(--shadow);
+	border: 1px solid var(--border-color);
+}
+
+.chart-title {
+	font-size: 22px;
+	font-weight: 700;
+	margin-bottom: 24px;
+	color: var(--text-primary);
+	text-align: center;
+	letter-spacing: -0.5px;
+}
+
+.bars {
+	display: grid;
+	grid-template-columns: repeat(52, 1fr);
+	align-items: end;
+	gap: 2px;
+	height: 320px;
+	background: var(--bg-primary);
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-sm);
+	padding: 12px;
+	margin-bottom: 20px;
+}
+
+.bar {
+	background: linear-gradient(to top, var(--accent-secondary), #2d7d46);
+	border-radius: 1px;
+	transition: var(--transition);
+	cursor: pointer;
+}
+
+.bar:hover {
+	background: linear-gradient(to top, #4cd964, #34c759);
+	transform: scaleY(1.05);
+	box-shadow: 0 0 8px rgba(35, 134, 54, 0.3);
+}
+
+.bar.selected {
+	background: linear-gradient(to top, var(--accent-primary), #2d7fea);
+	box-shadow: 0 0 12px rgba(31, 111, 235, 0.5);
+}
+
+.bar.zero {
+	background: var(--bg-tertiary);
+}
+
+.xlabels {
+	display: grid;
+	grid-template-columns: repeat(52, 1fr);
+	font-size: 8px;
+	color: var(--text-muted);
+	margin-top: 8px;
+	text-align: center;
+	overflow: hidden;
+}
+
+.stats {
+	margin-top: 20px;
+	color: var(--text-secondary);
+	font-size: 16px;
+	text-align: center;
+	font-weight: 500;
+	padding: 16px;
+	background: var(--bg-primary);
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--border-color);
+}
+
+.progress-chart {
+	background: var(--bg-primary);
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-sm);
+	padding: 24px;
+	min-height: 320px;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+.progress-line-chart {
+	position: relative;
+	height: 280px;
+	margin: 20px 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.progress-chart-area {
+	position: relative;
+	flex: 1;
+	display: flex;
+	align-items: flex-end;
+	border-left: 2px solid var(--border-color);
+	border-bottom: 2px solid var(--border-color);
+	padding: 10px 10px 0 10px;
+}
+
+.progress-svg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.progress-line {
+	fill: none;
+	stroke: var(--accent-primary);
+	stroke-width: 3;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.progress-x-labels {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 10px;
+	padding: 0 10px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.progress-x-label {
+	text-align: center;
+	white-space: nowrap;
+	font-weight: 500;
+}
+
+.progress-y-axis {
+	position: absolute;
+	left: -50px;
+	top: 0;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	font-size: 11px;
+	color: var(--text-muted);
+	text-align: right;
+}
+
+.progress-y-label {
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.table-container {
+	background: var(--bg-secondary);
+	border-radius: var(--radius);
+	padding: 32px;
+	box-shadow: var(--shadow);
+	border: 1px solid var(--border-color);
+	overflow-x: auto;
+}
+
+.table-container h2 {
+	font-size: 22px;
+	font-weight: 700;
+	margin-bottom: 24px;
+	color: var(--text-primary);
+	text-align: center;
+	letter-spacing: -0.5px;
+}
+
+.table {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--bg-primary);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	border: 1px solid var(--border-color);
+}
+
+.table th {
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
+	font-weight: 700;
+	padding: 18px 16px;
+	text-align: left;
+	font-size: 14px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	border-bottom: 2px solid var(--border-color);
+}
+
+.table td {
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--border-color);
+	color: var(--text-secondary);
+	font-size: 14px;
+}
+
+.table tr:nth-child(even) td {
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.table tr:hover td {
+	background: rgba(0, 122, 255, 0.1);
+	color: var(--text-primary);
+}
+
+.table .num {
+	width: 80px;
+	color: var(--text-primary);
+	font-weight: 600;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.table .text {
+	color: var(--text-secondary);
+	font-size: 13px;
+}
+
+.table .samples {
+	width: 100px;
+	text-align: center;
+	color: var(--accent-secondary);
+	font-weight: 600;
+}
+
+.table .avg {
+	text-align: right;
+	color: var(--text-primary);
+	font-weight: 500;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+	.topbar {
+		flex-direction: column;
+		gap: 16px;
+		padding: 16px;
+	}
+
+	.topbar h1 {
+		font-size: 20px;
+	}
+
+	.controls {
+		justify-content: center;
+		gap: 12px;
+	}
+
+	.user-input {
+		min-width: 150px;
+		font-size: 16px;
+	}
+
+	.content {
+		padding: 16px;
+	}
+
+	.chart {
+		padding: 16px;
+	}
+
+	.bars {
+		height: 200px;
+		gap: 1px;
+	}
+
+	.xlabels {
+		font-size: 6px;
+		overflow: hidden;
+		white-space: nowrap;
+	}
+
+	.table-container {
+		padding: 16px;
+	}
+
+	.table th,
+	.table td {
+		padding: 8px 6px;
+		font-size: 12px;
+	}
+
+	.table .num {
+		width: 60px;
+	}
+
+	.table .samples {
+		width: 80px;
+	}
+
+	.progress-chart {
+		padding: 16px;
+		min-height: 200px;
+	}
+
+	.progress-line-chart {
+		height: 200px;
+	}
+
+	.progress-x-labels {
+		font-size: 10px;
+	}
+}
+
+@media (max-width: 480px) {
+	.topbar h1 {
+		font-size: 18px;
+	}
+
+	.controls {
+		flex-direction: column;
+		width: 100%;
+	}
+
+	.control-group {
+		width: 100%;
+		justify-content: center;
+	}
+
+	.user-input {
+		width: 100%;
+		min-width: auto;
+	}
+
+	.chart {
+		padding: 12px;
+	}
+
+	.bars {
+		height: 150px;
+		gap: 0px;
+	}
+
+	.xlabels {
+		font-size: 4px;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	.table-container {
+		padding: 12px;
+	}
+
+	.table th,
+	.table td {
+		padding: 6px 4px;
+		font-size: 11px;
+	}
+
+	.table .num {
+		width: 50px;
+	}
+
+	.table .samples {
+		width: 60px;
+	}
+
+	.progress-chart {
+		padding: 12px;
+		min-height: 150px;
+	}
+
+	.progress-line-chart {
+		height: 180px;
+	}
+
+	.progress-x-labels {
+		font-size: 9px;
+	}
+
+	.progress-y-axis {
+		font-size: 9px;
+		left: -40px;
+	}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+	<h1>Performance Statistics - Mode 4</h1>
+	<div class="controls">
+		<div class="control-group">
+			<input id="userInput" class="user-input" type="text" placeholder="Set current user" />
+			<span id="currentUserLabel" class="user-label"></span>
+		</div>
+		<div class="control-group">
+			<button id="saveUser" class="btn btn-primary">Save</button>
+			<button id="refresh" class="btn btn-secondary">Refresh</button>
+		</div>
+	</div>
+</div>
+<div class="content">
+	<div class="chart">
+		<div class="chart-title">Performance Distribution</div>
+		<div id="bars" class="bars"></div>
+		<div id="xlabels" class="xlabels"></div>
+		<div id="summary" class="stats"></div>
+	</div>
+
+	<div id="digitChart" class="chart" style="display: none;">
+		<div class="chart-title">Number <span id="selectedDigit"></span> - Time Over All Attempts</div>
+		<div id="digitLineChart" class="progress-chart"></div>
+		<div id="digitSummary" class="stats"></div>
+	</div>
+
+	<div class="chart">
+		<div class="chart-title">Daily Progress - Average Response Time</div>
+		<div id="progressChart" class="progress-chart"></div>
+		<div id="progressSummary" class="stats"></div>
+	</div>
+
+	<div class="table-container">
+		<h2>Detailed Statistics</h2>
+		<div id="tableWrap" class="table"></div>
+	</div>
+</div>
+<script>
+(function(){
+	const HOST = 'https://superminor.ru';
+	const userInput = document.getElementById('userInput');
+	const saveUser = document.getElementById('saveUser');
+	const refresh = document.getElementById('refresh');
+	const currentUserLabel = document.getElementById('currentUserLabel');
+	const barsEl = document.getElementById('bars');
+	const xlabelsEl = document.getElementById('xlabels');
+	const summaryEl = document.getElementById('summary');
+
+	// Text mapping for numbers 1-52
+	const numberTexts = {
+		1: "Часть КПП",
+		2: "Часть Бухгалтерия",
+		3: "Часть Актовый зал",
+		4: "Часть Библиотека",
+		5: "Часть Медсанчасть",
+		6: "Часть Самоволка за санчастью",
+		7: "Часть Сарычев (Делопроизводство)",
+		8: "Часть Плац",
+		9: "Часть Окоп на холме у плаца (Холм)",
+		10: "Часть Памятник (Фотография)",
+		11: "КП На входе",
+		12: "КП Секретка",
+		13: "КП Коммутатор",
+		14: "КП ЛАЗ Дежурный",
+		15: "КП ЛАЗ Громы",
+		16: "КП ЛАЗ Койка",
+		17: "КП ЛАЗ АТС",
+		18: "КП ЛАЗ Комната с ноутбуком",
+		19: "КП ЛАЗ Уголок с паяльником",
+		20: "КП ЛАЗ Стол",
+		21: "КП Зал Дежурный",
+		22: "КП Зал Планшеты",
+		23: "КП ПРЦ Приемники",
+		24: "КП ПРЦ Новый год",
+		25: "КП Телеграф",
+		26: "КП Подвал, мастерские",
+		27: "Часть Вышка",
+		28: "Часть Релейка",
+		29: "Часть Окоп у релейки",
+		30: "Часть Автопарк гаражи",
+		31: "Казарма Тумба",
+		32: "Казарма Коптерка",
+		33: "Казарма Сейф",
+		34: "Казарма Левая располага (штанги)",
+		35: "Казарма Правая располага (койки)",
+		36: "Казарма Бытовка",
+		37: "Казарма Сушилка",
+		38: "Казарма Канцелярия",
+		39: "Казарма Комната досуга",
+		40: "Казарма Оружейка",
+		41: "Часть Курилка",
+		42: "Часть Теплица",
+		43: "Часть Спортивный городок",
+		44: "Часть Штаб",
+		45: "Вторая территория Столовая",
+		46: "Вторая территория Казарма",
+		47: "Вторая территория Турники",
+		48: "Вторая территория Плац",
+		49: "Вторая территория Склады",
+		50: "Вторая территория Чепок",
+		51: "Дембель Уазик до вокзала",
+		52: "Дембель Вокзал"
+	};
+
+	// Store raw data rows for digit-specific charts
+	let allDataRows = [];
+
+	// initialize x-axis labels 1..52
+	for (var i = 1; i <= 52; i++) {
+		const d = document.createElement('div');
+		d.textContent = String(i);
+		d.style.color = (i % 2 === 0) ? '#f00' : '#fff';
+		xlabelsEl.appendChild(d);
+	}
+
+	function readCurrentUser(){
+		return localStorage.getItem('current_user') || '';
+	}
+
+	function writeCurrentUser(v){
+		if ((v||'').trim()) localStorage.setItem('current_user', v.trim());
+	}
+
+	function updateUserLabel(){
+		const u = readCurrentUser();
+		currentUserLabel.textContent = u ? ('Current: ' + u) : 'Current: —';
+	}
+
+	function fetchTimes(){
+		const user = readCurrentUser();
+		const params = new URLSearchParams();
+		params.set('mode', '4'); // Always mode 4
+		if (user) params.set('user', user);
+		return fetch(HOST + '/api/get_time?' + params.toString()).then(function(r){ return r.json(); });
+	}
+
+	function computeAverages(rows){
+		const sum = new Array(53).fill(0); // indices 0-52, we use 1-52
+		const count = new Array(53).fill(0);
+		rows.forEach(function(row){
+			const num = Number(row.number);
+			const t = Number(row.time);
+			if (Number.isInteger(num) && num >= 1 && num <= 52 && Number.isFinite(t)){
+				sum[num] += t;
+				count[num] += 1;
+			}
+		});
+		const avg = sum.map(function(s, i){ return count[i] ? (s / count[i]) : 0; });
+		return { avg: avg, count: count };
+	}
+
+	function renderBars(avg){
+		barsEl.innerHTML = '';
+		// Use indices 1-52
+		const relevantAvg = avg.slice(1, 53);
+		const max = Math.max(1, Math.max.apply(null, relevantAvg));
+		for (var i = 1; i <= 52; i++) {
+			const value = avg[i];
+			const bar = document.createElement('div');
+			bar.className = 'bar' + (value === 0 ? ' zero' : '');
+			const h = (value / max) * 100;
+			bar.style.height = h + '%';
+			bar.dataset.digit = i;
+
+			// Add click event listener
+			bar.addEventListener('click', function(){
+				showDigitChart(Number(this.dataset.digit));
+			});
+
+			barsEl.appendChild(bar);
+		}
+	}
+
+	function renderSummary(avg, count){
+		const relevantAvg = avg.slice(1, 53);
+		const relevantCount = count.slice(1, 53);
+		const nonZero = relevantAvg.filter(function(v){ return v > 0; });
+		const overall = nonZero.length ? Math.round(nonZero.reduce(function(a,b){ return a + b; }, 0) / nonZero.length) : 0;
+		summaryEl.textContent = 'Average (non-zero): ' + overall + ' ms — Total samples: ' + relevantCount.reduce(function(a,b){return a+b;},0);
+	}
+
+	function renderTable(avg, count){
+		var html = ['<table><thead><tr><th>Number</th><th>Text</th><th>Samples</th><th>Average (sec)</th></tr></thead><tbody>'];
+		for (var i = 1; i <= 52; i++) {
+			var num = String(i);
+			var text = numberTexts[i] || '';
+			var samples = count[i] || 0;
+			var valSec = (((avg[i] || 0) / 1000).toFixed(2)) + ' sec';
+			html.push('<tr><td class="num">' + num + '</td><td class="text">' + text + '</td><td class="samples">' + samples + '</td><td class="avg">' + valSec + '</td></tr>');
+		}
+		html.push('</tbody></table>');
+		document.getElementById('tableWrap').innerHTML = html.join('');
+	}
+
+	function computeDailyAverages(rows){
+		var dayMap = {};
+		rows.forEach(function(row){
+			var t = Number(row.time);
+			if (!Number.isFinite(t)) return;
+
+			var date;
+			if (row.timestamp) {
+				var d = new Date(row.timestamp);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else if (row.created_at) {
+				var d = new Date(row.created_at);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else {
+				var d = new Date();
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			}
+
+			if (!dayMap[date]) {
+				dayMap[date] = { sum: 0, count: 0 };
+			}
+			dayMap[date].sum += t;
+			dayMap[date].count += 1;
+		});
+
+		var dailyData = [];
+		Object.keys(dayMap).forEach(function(date){
+			var avg = dayMap[date].sum / dayMap[date].count;
+			dailyData.push({
+				date: date,
+				average: avg,
+				count: dayMap[date].count
+			});
+		});
+
+		dailyData.sort(function(a, b){
+			return a.date.localeCompare(b.date);
+		});
+
+		return dailyData;
+	}
+
+	function renderProgressChart(dailyData){
+		var chartEl = document.getElementById('progressChart');
+		var summaryEl = document.getElementById('progressSummary');
+
+		if (!dailyData || dailyData.length === 0) {
+			chartEl.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No data available</div>';
+			summaryEl.textContent = '';
+			return;
+		}
+
+		var maxAvg = Math.max.apply(null, dailyData.map(function(d){ return d.average; }));
+		var minAvg = Math.min.apply(null, dailyData.map(function(d){ return d.average; }));
+		if (maxAvg === 0) maxAvg = 1;
+
+		var range = maxAvg - minAvg;
+		var paddedMax = maxAvg + (range * 0.1);
+		var paddedMin = Math.max(0, minAvg - (range * 0.1));
+
+		var html = ['<div class="progress-line-chart">'];
+		html.push('  <div class="progress-chart-area">');
+
+		var numPoints = dailyData.length;
+		var pathPoints = [];
+
+		dailyData.forEach(function(day, idx){
+			var x = (idx / Math.max(1, numPoints - 1)) * 100;
+			var y = 100 - ((day.average - paddedMin) / (paddedMax - paddedMin)) * 100;
+			pathPoints.push((idx === 0 ? 'M' : 'L') + x + ' ' + y);
+		});
+
+		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">');
+		html.push('      <path class="progress-line" d="' + pathPoints.join(' ') + '" vector-effect="non-scaling-stroke"/>');
+		html.push('    </svg>');
+
+		html.push('  </div>');
+
+		html.push('  <div class="progress-x-labels">');
+		var labelsToShow = Math.min(7, dailyData.length);
+		var labelStep = dailyData.length > 1 ? (dailyData.length - 1) / (labelsToShow - 1) : 1;
+
+		for (var i = 0; i < labelsToShow; i++) {
+			var idx = Math.round(i * labelStep);
+			if (idx < dailyData.length) {
+				var dateStr = dailyData[idx].date;
+				var parts = dateStr.split('-');
+				var shortDate = parts[1] + '/' + parts[2];
+				html.push('    <div class="progress-x-label">' + shortDate + '</div>');
+			}
+		}
+		html.push('  </div>');
+		html.push('</div>');
+
+		chartEl.innerHTML = html.join('');
+
+		var totalSamples = dailyData.reduce(function(sum, d){ return sum + d.count; }, 0);
+		var overallAvg = dailyData.reduce(function(sum, d){ return sum + d.average; }, 0) / dailyData.length;
+		summaryEl.textContent = 'Days tracked: ' + dailyData.length +
+								' — Overall average: ' + (overallAvg / 1000).toFixed(2) + ' sec' +
+								' — Total samples: ' + totalSamples;
+	}
+
+	function showDigitChart(digit){
+		var allBars = barsEl.querySelectorAll('.bar');
+		allBars.forEach(function(b){ b.classList.remove('selected'); });
+
+		// Find the bar for this digit (it's the (digit-1)th bar since we start from 1)
+		if (allBars[digit - 1]) {
+			allBars[digit - 1].classList.add('selected');
+		}
+
+		var digitData = allDataRows.filter(function(row){
+			return Number(row.number) === digit;
+		}).map(function(row){
+			return {
+				time: Number(row.time),
+				timestamp: row.timestamp || row.created_at
+			};
+		});
+
+		digitData.sort(function(a, b){
+			if (a.timestamp && b.timestamp) {
+				return new Date(a.timestamp) - new Date(b.timestamp);
+			}
+			return 0;
+		});
+
+		renderDigitLineChart(digit, digitData);
+	}
+
+	function renderDigitLineChart(digit, digitData){
+		var chartEl = document.getElementById('digitLineChart');
+		var summaryEl = document.getElementById('digitSummary');
+		var digitChartEl = document.getElementById('digitChart');
+		var selectedDigitEl = document.getElementById('selectedDigit');
+
+		selectedDigitEl.textContent = String(digit) + ' - ' + (numberTexts[digit] || '');
+
+		digitChartEl.style.display = 'block';
+
+		digitChartEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+		if (!digitData || digitData.length === 0) {
+			chartEl.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No data available for this number</div>';
+			summaryEl.textContent = '';
+			return;
+		}
+
+		var times = digitData.map(function(d){ return d.time / 1000; });
+
+		var maxTime = Math.max.apply(null, times);
+		var minTime = Math.min.apply(null, times);
+		if (maxTime === 0) maxTime = 1;
+
+		var range = maxTime - minTime;
+		var paddedMax = maxTime + (range * 0.1);
+		var paddedMin = Math.max(0, minTime - (range * 0.1));
+
+		var html = ['<div class="progress-line-chart">'];
+		html.push('  <div class="progress-chart-area" style="position: relative;">');
+
+		html.push('    <div class="progress-y-axis">');
+		var numYLabels = 5;
+		for (var i = 0; i < numYLabels; i++) {
+			var value = paddedMax - (i * (paddedMax - paddedMin) / (numYLabels - 1));
+			html.push('      <div class="progress-y-label">' + value.toFixed(2) + 's</div>');
+		}
+		html.push('    </div>');
+
+		var numPoints = times.length;
+		var pathPoints = [];
+
+		times.forEach(function(time, idx){
+			var x = (idx / Math.max(1, numPoints - 1)) * 100;
+			var y = 100 - ((time - paddedMin) / (paddedMax - paddedMin)) * 100;
+			pathPoints.push((idx === 0 ? 'M' : 'L') + x + ' ' + y);
+		});
+
+		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">');
+		html.push('      <path class="progress-line" d="' + pathPoints.join(' ') + '" vector-effect="non-scaling-stroke"/>');
+		html.push('    </svg>');
+
+		html.push('  </div>');
+		html.push('</div>');
+
+		chartEl.innerHTML = html.join('');
+
+		var avgTime = times.reduce(function(sum, t){ return sum + t; }, 0) / times.length;
+		summaryEl.textContent = 'Total attempts: ' + times.length +
+								' — Average: ' + avgTime.toFixed(2) + ' sec' +
+								' — Min: ' + minTime.toFixed(2) + ' sec' +
+								' — Max: ' + maxTime.toFixed(2) + ' sec';
+	}
+
+	function refreshAll(){
+		fetchTimes().then(function(data){
+			var rows = Array.isArray(data.rows) ? data.rows : [];
+
+			allDataRows = rows;
+
+			var result = computeAverages(rows);
+			renderBars(result.avg);
+			renderSummary(result.avg, result.count);
+			renderTable(result.avg, result.count);
+
+			var dailyData = computeDailyAverages(rows);
+			renderProgressChart(dailyData);
+
+			document.getElementById('digitChart').style.display = 'none';
+		});
+	}
+
+	saveUser.addEventListener('click', function(){ writeCurrentUser(userInput.value); updateUserLabel(); refreshAll(); });
+	refresh.addEventListener('click', refreshAll);
+
+	document.addEventListener('DOMContentLoaded', function(){
+		userInput.value = readCurrentUser();
+		updateUserLabel();
+		refreshAll();
+	});
+})();
+</script>
+</body>
+</html>
