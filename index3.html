@@ -65,7 +65,7 @@
 		}
 
 		#textDisplay {
-			font-size: 16px;
+			font-size: 14px;
 			font-weight: 400;
 			color: #fff;
 			user-select: none;
@@ -76,12 +76,25 @@
 			width: 100%;
 			height: 100%;
 			display: none;
-			place-items: center;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-end;
+			align-items: flex-start;
 			text-align: center;
 			padding: 20px;
 			box-sizing: border-box;
 			line-height: 1.3;
 			overflow-y: auto;
+		}
+
+		@keyframes fadeInText {
+			from {
+				opacity: 0;
+			}
+
+			to {
+				opacity: 1;
+			}
 		}
 
 		.interval-list {
@@ -90,6 +103,11 @@
 			gap: 4px;
 			width: 100%;
 			max-width: 600px;
+			opacity: 0;
+		}
+
+		.interval-list.fade-in {
+			animation: fadeInText 5s ease forwards;
 		}
 
 		.interval-item {
@@ -100,7 +118,7 @@
 			border-radius: 6px;
 			text-align: left;
 			color: #555;
-			font-size: clamp(16px, 4vw, 24px);
+			font-size: clamp(12px, 3vw, 18px);
 			align-items: center;
 		}
 
@@ -478,7 +496,17 @@
 				html += '</div>';
 				textDisplayEl.innerHTML = html;
 				numberDisplayEl.style.display = 'none';
-				textDisplayEl.style.display = 'grid';
+				textDisplayEl.style.display = 'flex';
+
+				// restart fade-in animation on the text list only
+				var listEl = textDisplayEl.querySelector('.interval-list');
+				if (listEl) {
+					listEl.classList.remove('fade-in');
+					// force reflow to allow re-adding the class to restart animation
+					void listEl.offsetWidth;
+					listEl.classList.add('fade-in');
+				}
+
 				restartSessionTimer();
 
 				// Send timing for this tap - mode 4
@@ -489,7 +517,7 @@
 				setTimeout(function () {
 					showNumber();
 					isTransitioning = false;
-				}, 5000);
+				}, 8000);
 			});
 		})();
 	</script>
