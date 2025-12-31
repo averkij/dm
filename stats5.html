@@ -521,13 +521,19 @@ body {
 		rows.forEach(function(row){
 			const n = Number(row.n);
 			const t = Number(row.time);
+			const errors = Number(row.errors);
 			if (!Number.isInteger(n) || n < 1 || !Number.isFinite(t)) return;
 
 			if (!nMap[n]) {
-				nMap[n] = { sum: 0, count: 0 };
+				nMap[n] = { sum: 0, count: 0, errorSum: 0, errorCount: 0 };
 			}
 			nMap[n].sum += t;
 			nMap[n].count += 1;
+
+			if (Number.isFinite(errors) && errors >= 0) {
+				nMap[n].errorSum += errors;
+				nMap[n].errorCount += 1;
+			}
 		});
 
 		const result = [];
@@ -535,6 +541,7 @@ body {
 			result.push({
 				n: Number(n),
 				average: nMap[n].sum / nMap[n].count,
+				averageErrors: nMap[n].errorCount > 0 ? nMap[n].errorSum / nMap[n].errorCount : 0,
 				samples: nMap[n].count
 			});
 		});
@@ -544,12 +551,13 @@ body {
 	}
 
 	function renderTable(nStats){
-		var html = ['<table class="table"><thead><tr><th>N</th><th>Samples</th><th>Average (sec)</th></tr></thead><tbody>'];
+		var html = ['<table class="table"><thead><tr><th>N</th><th>Samples</th><th>Avg Time (sec)</th><th>Avg Errors</th></tr></thead><tbody>'];
 		nStats.forEach(function(stat){
 			var n = String(stat.n);
 			var samples = stat.samples;
 			var avgSec = (stat.average / 1000).toFixed(2) + ' sec';
-			html.push('<tr><td class="num">' + n + '</td><td class="samples">' + samples + '</td><td class="avg">' + avgSec + '</td></tr>');
+			var avgErrors = stat.averageErrors.toFixed(2);
+			html.push('<tr><td class="num">' + n + '</td><td class="samples">' + samples + '</td><td class="avg">' + avgSec + '</td><td class="avg">' + avgErrors + '</td></tr>');
 		});
 		html.push('</tbody></table>');
 		document.getElementById('tableWrap').innerHTML = html.join('');
@@ -584,6 +592,55 @@ body {
 				dayMap[date] = { sum: 0, count: 0 };
 			}
 			dayMap[date].sum += t;
+			dayMap[date].count += 1;
+		});
+
+		var dailyData = [];
+		Object.keys(dayMap).forEach(function(date){
+			var avg = dayMap[date].sum / dayMap[date].count;
+			dailyData.push({
+				date: date,
+				average: avg,
+				count: dayMap[date].count
+			});
+		});
+
+		dailyData.sort(function(a, b){
+			return a.date.localeCompare(b.date);
+		});
+
+		return dailyData;
+	}
+
+	function computeDailyErrorsForN(rows, n){
+		var dayMap = {};
+		rows.forEach(function(row){
+			if (Number(row.n) !== n) return;
+			var errors = Number(row.errors);
+			if (!Number.isFinite(errors) || errors < 0) return;
+
+			var date;
+			if (row.timestamp) {
+				var d = new Date(row.timestamp);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else if (row.created_at) {
+				var d = new Date(row.created_at);
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			} else {
+				var d = new Date();
+				date = d.getFullYear() + '-' +
+					   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+					   String(d.getDate()).padStart(2, '0');
+			}
+
+			if (!dayMap[date]) {
+				dayMap[date] = { sum: 0, count: 0 };
+			}
+			dayMap[date].sum += errors;
 			dayMap[date].count += 1;
 		});
 
@@ -670,6 +727,72 @@ body {
 		return html.join('');
 	}
 
+	function renderErrorChart(n, dailyData){
+		if (!dailyData || dailyData.length === 0) {
+			return '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No data available</div>';
+		}
+
+		var maxAvg = Math.max.apply(null, dailyData.map(function(d){ return d.average; }));
+		var minAvg = Math.min.apply(null, dailyData.map(function(d){ return d.average; }));
+		if (maxAvg === 0) maxAvg = 1;
+
+		var range = maxAvg - minAvg;
+		var paddedMax = maxAvg + (range * 0.1);
+		var paddedMin = Math.max(0, minAvg - (range * 0.1));
+
+		var html = ['<div class="progress-line-chart">'];
+		html.push('  <div class="progress-chart-area" style="position: relative;">');
+
+		html.push('    <div class="progress-y-axis">');
+		var numYLabels = 5;
+		for (var i = 0; i < numYLabels; i++) {
+			var value = paddedMax - (i * (paddedMax - paddedMin) / (numYLabels - 1));
+			html.push('      <div class="progress-y-label">' + value.toFixed(2) + '</div>');
+		}
+		html.push('    </div>');
+
+		var numPoints = dailyData.length;
+		var pathPoints = [];
+
+		dailyData.forEach(function(day, idx){
+			var x = (idx / Math.max(1, numPoints - 1)) * 100;
+			var y = 100 - ((day.average - paddedMin) / (paddedMax - paddedMin)) * 100;
+			pathPoints.push((idx === 0 ? 'M' : 'L') + x + ' ' + y);
+		});
+
+		html.push('    <svg class="progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">');
+		html.push('      <path class="progress-line" d="' + pathPoints.join(' ') + '" vector-effect="non-scaling-stroke" style="stroke: #ff3b30;"/>');
+		html.push('    </svg>');
+
+		html.push('  </div>');
+
+		html.push('  <div class="progress-x-labels">');
+		var labelsToShow = Math.min(7, dailyData.length);
+		var labelStep = dailyData.length > 1 ? (dailyData.length - 1) / (labelsToShow - 1) : 1;
+
+		for (var i = 0; i < labelsToShow; i++) {
+			var idx = Math.round(i * labelStep);
+			if (idx < dailyData.length) {
+				var dateStr = dailyData[idx].date;
+				var parts = dateStr.split('-');
+				var shortDate = parts[1] + '/' + parts[2];
+				html.push('    <div class="progress-x-label">' + shortDate + '</div>');
+			}
+		}
+		html.push('  </div>');
+		html.push('</div>');
+
+		var totalSamples = dailyData.reduce(function(sum, d){ return sum + d.count; }, 0);
+		var overallAvg = dailyData.reduce(function(sum, d){ return sum + d.average; }, 0) / dailyData.length;
+		html.push('<div class="stats">');
+		html.push('Days tracked: ' + dailyData.length +
+				  ' — Overall average errors: ' + overallAvg.toFixed(2) +
+				  ' — Total samples: ' + totalSamples);
+		html.push('</div>');
+
+		return html.join('');
+	}
+
 	function renderCharts(rows){
 		// Get all distinct n values
 		var nSet = new Set();
@@ -686,9 +809,17 @@ body {
 		nValues.forEach(function(n){
 			var dailyData = computeDailyAveragesForN(rows, n);
 			html.push('<div class="chart">');
-			html.push('  <div class="chart-title">N = ' + n + ' — Daily Progress</div>');
+			html.push('  <div class="chart-title">N = ' + n + ' — Daily Time Progress</div>');
 			html.push('  <div class="progress-chart">');
 			html.push(renderProgressChart(n, dailyData));
+			html.push('  </div>');
+			html.push('</div>');
+
+			var dailyErrors = computeDailyErrorsForN(rows, n);
+			html.push('<div class="chart">');
+			html.push('  <div class="chart-title">N = ' + n + ' — Daily Error Progress</div>');
+			html.push('  <div class="progress-chart">');
+			html.push(renderErrorChart(n, dailyErrors));
 			html.push('  </div>');
 			html.push('</div>');
 		});
