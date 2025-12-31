@@ -162,7 +162,7 @@ body {
 		<button id="startButton" class="start-button" hidden>Start</button>
 	</div>
 	<div id="healthDot" aria-hidden="true"></div>
-	<div id="sessionTimer" aria-hidden="true" style="display:none">02:00</div>
+	<div id="sessionTimer" aria-hidden="true" style="display:none">05:00</div>
 <script>
 (function() {
 	// Backend host for API calls
@@ -218,10 +218,10 @@ body {
 			clearInterval(sessionTicker);
 			sessionTicker = null;
 		}
-		sessionDeadlineTs = Date.now() + 120000;
+		sessionDeadlineTs = Date.now() + 300000;
 		sessionTimerEl.style.display = 'block';
 		updateSessionTimerUI();
-		timerHandle = setTimeout(function() { stopSession("Time's up"); }, 120000);
+		timerHandle = setTimeout(function() { stopSession("Time's up"); }, 300000);
 		sessionTicker = setInterval(updateSessionTimerUI, 200);
 	}
 
