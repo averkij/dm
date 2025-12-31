@@ -448,8 +448,6 @@ body {
 
 	// Handle check button click
 	checkButtonEl.addEventListener('click', function() {
-		if (isTransitioning) return;
-
 		// Compute recall time
 		var recallTime = Math.max(0, Date.now() - recallStartTs);
 
@@ -492,10 +490,11 @@ body {
 
 		// Show result
 		numbersDisplayEl.innerHTML = resultHtml.join(' ');
+		numbersDisplayEl.style.display = 'block';
 		inputSectionEl.classList.remove('visible');
 
-		// Send event
-		sendTime(originalStr, memorizationTime, currentN, recallTime, userStr, errors);
+		// Send event - use first number as the 'number' field (to avoid integer overflow)
+		sendTime(currentNumbers[0], memorizationTime, currentN, recallTime, userStr, errors);
 
 		// Wait 10 seconds, then show next numbers
 		setTimeout(function() {
