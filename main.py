@@ -43,13 +43,20 @@ def ensure_db() -> None:
             pass
 
         try:
-            conn.execute("ALTER TABLE times ADD COLUMN number2 TEXT")
+            conn.execute("ALTER TABLE times ADD COLUMN errors INTEGER")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
+        # Add long number fields for storing full concatenated numbers
+        try:
+            conn.execute("ALTER TABLE times ADD COLUMN long_number1 TEXT")
             conn.commit()
         except sqlite3.OperationalError:
             pass
 
         try:
-            conn.execute("ALTER TABLE times ADD COLUMN errors INTEGER")
+            conn.execute("ALTER TABLE times ADD COLUMN long_number2 TEXT")
             conn.commit()
         except sqlite3.OperationalError:
             pass
@@ -64,15 +71,16 @@ def insert_time(
     user_value: str | None,
     n_value: int | None = None,
     time2_value: int | None = None,
-    number2_value: str | None = None,
-    errors_value: int | None = None
+    errors_value: int | None = None,
+    long_number1_value: str | None = None,
+    long_number2_value: str | None = None
 ) -> int:
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO times (number, time, mode, user, created_at, n, time2, number2, errors)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO times (number, time, mode, user, created_at, n, time2, errors, long_number1, long_number2)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 number_value,
@@ -82,8 +90,9 @@ def insert_time(
                 datetime.utcnow().isoformat(),
                 n_value,
                 time2_value,
-                number2_value,
-                errors_value
+                errors_value,
+                long_number1_value,
+                long_number2_value
             ),
         )
         conn.commit()
@@ -122,30 +131,35 @@ def write_time():
         # Handle optional mode 5 parameters
         n_value = None
         time2_value = None
-        number2_value = None
         errors_value = None
+        long_number1_value = None
+        long_number2_value = None
 
         if mode_value == 5:
             n_raw = data.get('n')
             time2_raw = data.get('time2')
-            number2_raw = data.get('number2')
             errors_raw = data.get('errors')
+            long_number1_raw = data.get('long_number1')
+            long_number2_raw = data.get('long_number2')
 
             if n_raw is not None:
                 n_value = int(str(n_raw))
             if time2_raw is not None:
                 time2_value = int(str(time2_raw))
-            if number2_raw is not None:
-                number2_value = str(number2_raw)[:1000]
             if errors_raw is not None:
                 errors_value = int(str(errors_raw))
+            if long_number1_raw is not None:
+                long_number1_value = str(long_number1_raw)[:10000]
+            if long_number2_raw is not None:
+                long_number2_value = str(long_number2_raw)[:10000]
 
         print(user_value)
         print(mode_value)
         print(number_value)
         print(time_ms)
         if mode_value == 5:
-            print(f"n={n_value}, time2={time2_value}, number2={number2_value}, errors={errors_value}")
+            print(f"n={n_value}, time2={time2_value}, errors={errors_value}")
+            print(f"long_number1={long_number1_value}, long_number2={long_number2_value}")
         print("*"*80)
 
         row_id = insert_time(
@@ -155,8 +169,9 @@ def write_time():
             user_value,
             n_value,
             time2_value,
-            number2_value,
-            errors_value
+            errors_value,
+            long_number1_value,
+            long_number2_value
         )
         return jsonify({"status": "ok", "id": row_id})
     except Exception as exc:
@@ -185,12 +200,12 @@ def get_time():
         conn.row_factory = sqlite3.Row
         if user_param is None or user_param == "":
             cursor = conn.execute(
-                "SELECT id, number, time, mode, user, created_at, n, time2, number2, errors FROM times WHERE mode = ? ORDER BY id DESC",
+                "SELECT id, number, time, mode, user, created_at, n, time2, errors, long_number1, long_number2 FROM times WHERE mode = ? ORDER BY id DESC",
                 (mode_param,),
             )
         else:
             cursor = conn.execute(
-                "SELECT id, number, time, mode, user, created_at, n, time2, number2, errors FROM times WHERE mode = ? AND user = ? ORDER BY id DESC",
+                "SELECT id, number, time, mode, user, created_at, n, time2, errors, long_number1, long_number2 FROM times WHERE mode = ? AND user = ? ORDER BY id DESC",
                 (mode_param, user_param),
             )
         rows = [dict(r) for r in cursor.fetchall()]
