@@ -60,6 +60,59 @@ body {
 	color: #2ecc71;
 }
 
+#inputSection {
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	gap: 20px;
+	padding: 20px;
+}
+
+#inputSection.visible {
+	display: flex;
+}
+
+.number-input {
+	font-size: 24px;
+	padding: 15px 20px;
+	border-radius: 8px;
+	border: 2px solid #444;
+	background: #111;
+	color: #fff;
+	min-width: 300px;
+	text-align: center;
+	font-family: monospace;
+}
+
+.check-button {
+	appearance: none;
+	border: none;
+	padding: 15px 40px;
+	border-radius: 10px;
+	font-size: 18px;
+	font-weight: 700;
+	cursor: pointer;
+	background: #0a84ff;
+	color: #fff;
+}
+
+.check-button:hover {
+	background: #0077ed;
+}
+
+.digit-display {
+	display: inline-block;
+	margin: 0 2px;
+}
+
+.digit-display.correct {
+	color: #2ecc71;
+}
+
+.digit-display.incorrect {
+	color: #ff3b30;
+}
+
 /* Start screen overlay */
 #startOverlay {
 	position: fixed;
@@ -148,6 +201,11 @@ body {
 <body>
 	<div class="main">
 		<div id="numbersDisplay"></div>
+		<div id="inputSection">
+			<div style="color: #aaa; font-size: 18px;">Enter the numbers you remember:</div>
+			<input id="numberInput" class="number-input" type="text" placeholder="0000 0000 0000..." />
+			<button id="checkButton" class="check-button">Check</button>
+		</div>
 	</div>
 	<div id="startOverlay">
 		<div id="userGate" class="user-box" hidden>
@@ -169,6 +227,9 @@ body {
 	const HOST = 'https://superminor.ru';
 
 	const numbersDisplayEl = document.getElementById('numbersDisplay');
+	const inputSectionEl = document.getElementById('inputSection');
+	const numberInputEl = document.getElementById('numberInput');
+	const checkButtonEl = document.getElementById('checkButton');
 	const startOverlay = document.getElementById('startOverlay');
 	const startButton = document.getElementById('startButton');
 	const userGate = document.getElementById('userGate');
@@ -183,6 +244,8 @@ body {
 	let currentNumbers = [];
 	let currentN = 10;
 	let isTransitioning = false;
+	let memorizationTime = 0; // time to memorize
+	let recallStartTs = 0; // when recall phase started
 
 	// Session timing & per-stimulus timing
 	let sessionActive = false;
@@ -247,8 +310,10 @@ body {
 	function showNumbers() {
 		currentNumbers = generateNumbers(currentN);
 		const numbersText = currentNumbers.map(format4Digit).join(' ');
-		numbersDisplayEl.textContent = numbersText;
+		numbersDisplayEl.innerHTML = numbersText;
+		numbersDisplayEl.style.display = 'block';
 		numbersDisplayEl.classList.remove('correct');
+		inputSectionEl.classList.remove('visible');
 		tapStartTs = Date.now();
 		restartSessionTimer();
 	}
@@ -281,7 +346,7 @@ body {
 		startSession();
 	});
 
-	function sendTime(numbersStr, elapsedMs, n) {
+	function sendTime(numbersStr, elapsedMs, n, time2, number2, errors) {
 		try {
 			var currentUser = localStorage.getItem('current_user') || null;
 			fetch(HOST + '/api/write_time', {
@@ -292,6 +357,9 @@ body {
 					time: elapsedMs,
 					mode: 5,
 					n: n,
+					time2: time2,
+					number2: number2,
+					errors: errors,
 					user: currentUser
 				})
 			}).catch(function(){});
@@ -378,32 +446,95 @@ body {
 		})();
 	});
 
+	// Handle check button click
+	checkButtonEl.addEventListener('click', function() {
+		if (isTransitioning) return;
+
+		// Compute recall time
+		var recallTime = Math.max(0, Date.now() - recallStartTs);
+
+		// Get user input and parse it
+		var userInputValue = (numberInputEl.value || '').trim();
+		var userNumbers = userInputValue.split(/\s+/).filter(function(s) { return s.length > 0; });
+
+		// Pad user numbers to match currentN length
+		while (userNumbers.length < currentN) {
+			userNumbers.push('');
+		}
+
+		// Create combined strings for comparison
+		var originalStr = currentNumbers.map(format4Digit).join('');
+		var userStr = userNumbers.map(function(n) { return String(n).padStart(4, '0'); }).join('');
+
+		// Count errors (digit by digit comparison)
+		var errors = 0;
+		var resultHtml = [];
+
+		for (var i = 0; i < currentN; i++) {
+			var originalNum = format4Digit(currentNumbers[i]);
+			var userNum = (userNumbers[i] || '').padStart(4, '0');
+
+			var numHtml = '';
+			for (var j = 0; j < 4; j++) {
+				var origDigit = originalNum[j];
+				var userDigit = userNum[j] || '0';
+
+				if (origDigit === userDigit) {
+					numHtml += '<span class="digit-display correct">' + origDigit + '</span>';
+				} else {
+					numHtml += '<span class="digit-display incorrect">' + origDigit + '</span>';
+					errors++;
+				}
+			}
+
+			resultHtml.push(numHtml);
+		}
+
+		// Show result
+		numbersDisplayEl.innerHTML = resultHtml.join(' ');
+		inputSectionEl.classList.remove('visible');
+
+		// Send event
+		sendTime(originalStr, memorizationTime, currentN, recallTime, userStr, errors);
+
+		// Wait 10 seconds, then show next numbers
+		setTimeout(function() {
+			numberInputEl.value = '';
+			showNumbers();
+			isTransitioning = false;
+		}, 10000);
+	});
+
 	// Use pointer events so it works on both touch and mouse without double-firing
 	window.addEventListener('pointerdown', function(ev) {
 		if (!sessionActive) return;
 		if (ev.isPrimary === false) return; // ignore secondary pointers
 		if (isTransitioning) return;
+
+		// Ignore taps on input section or start overlay
+		if (inputSectionEl.contains(ev.target) || startOverlay.contains(ev.target)) return;
+
+		// Only respond if numbers are visible (not during input phase)
+		if (inputSectionEl.classList.contains('visible')) return;
+
 		isTransitioning = true;
 
-		// Compute elapsed from when the current numbers appeared
-		var tapElapsed = Math.max(0, Date.now() - tapStartTs);
+		// Compute elapsed from when the current numbers appeared (memorization time)
+		memorizationTime = Math.max(0, Date.now() - tapStartTs);
 
-		// Create a combined number string from all numbers (for logging purposes)
-		var numbersForEvent = currentNumbers.map(format4Digit).join('');
+		// Hide numbers, show input section
+		numbersDisplayEl.style.display = 'none';
+		inputSectionEl.classList.add('visible');
+		numberInputEl.focus();
 
-		// Send timing for this tap (mode 5)
-		if (numbersForEvent) {
-			sendTime(numbersForEvent, tapElapsed, currentN);
-		}
+		// Start recall timer
+		recallStartTs = Date.now();
+		restartSessionTimer();
+	});
 
-		// Color numbers green
-		numbersDisplayEl.classList.add('correct');
-
-		// Wait 10 seconds, then show next numbers
-		setTimeout(function() {
-			showNumbers();
-			isTransitioning = false;
-		}, 10000);
+	// Handle Enter key in number input
+	numberInputEl.addEventListener('keyup', function(e) {
+		if (e.key === 'Enter') checkButtonEl.click();
 	});
 })();
 </script>
