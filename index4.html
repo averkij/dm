@@ -346,7 +346,7 @@ body {
 		startSession();
 	});
 
-	function sendTime(numbersStr, elapsedMs, n, time2, number2, errors) {
+	function sendTime(numbersStr, elapsedMs, n, time2, number2, errors, longNumber1, longNumber2) {
 		try {
 			var currentUser = localStorage.getItem('current_user') || null;
 			fetch(HOST + '/api/write_time', {
@@ -358,8 +358,9 @@ body {
 					mode: 5,
 					n: n,
 					time2: time2,
-					number2: number2,
 					errors: errors,
+					long_number1: longNumber1,
+					long_number2: longNumber2,
 					user: currentUser
 				})
 			}).catch(function(){});
@@ -448,8 +449,6 @@ body {
 
 	// Handle check button click
 	checkButtonEl.addEventListener('click', function() {
-		//if (isTransitioning) return;
-
 		// Compute recall time
 		var recallTime = Math.max(0, Date.now() - recallStartTs);
 
@@ -492,10 +491,12 @@ body {
 
 		// Show result
 		numbersDisplayEl.innerHTML = resultHtml.join(' ');
+		numbersDisplayEl.style.display = 'block';
 		inputSectionEl.classList.remove('visible');
 
-		// Send event
-		sendTime(originalStr, memorizationTime, currentN, recallTime, userStr, errors);
+		// Send event - use first number as the 'number' field (to avoid integer overflow)
+		// Send full concatenated strings as long_number1 and long_number2
+		sendTime(currentNumbers[0], memorizationTime, currentN, recallTime, userStr, errors, originalStr, userStr);
 
 		// Wait 10 seconds, then show next numbers
 		setTimeout(function() {
